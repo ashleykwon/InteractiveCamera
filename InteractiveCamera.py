@@ -42,6 +42,10 @@ import numpy as np
 
 
 # Apply zoom in/out
+def zoom(Zminimum, Zmaximum, scaleFactor, XZpairs):
+    # Divide x values in XZpairs by scaleFactor
+    newXZpairs = [[x/scaleFactor, z] for [x,z] in XZpairs if z >= Zminimum and z <= Zmaximum]
+    return newXZpairs
 
 
 # Increase or decrease foreshortening
@@ -109,12 +113,14 @@ if __name__ == '__main__':
     XVals = range(-5, 6, 1)
     ZVals = range(3, 11, 1)
 
-    x_values = [-3 + i if i < len(ZVals) // 2 else 0 - (i - len(ZVals) // 2) for i in range(len(ZVals))]
-    print(x_values)
+    # x_values = [-3 + i if i < len(ZVals) // 2 else 0 - (i - len(ZVals) // 2) for i in range(len(ZVals))]
+    # print(x_values)
 
-    XZPairs = [[x, z] for x in XVals for z in ZVals]
-    print("Original XZ pairs")
-    print(XZPairs)
-    newXZPairs = foreshortening(3, 50, 0.2, XZPairs)
-    print("New XZ pairs")
-    print(newXZPairs)
+    XZpairs = [[x, z] for x in XVals for z in ZVals]
+    # print("Original XZ pairs")
+    # print(XZpairs)
+    # newXZPairs = foreshortening(3, 50, 0.2, XZPairs)
+    # print("New XZ pairs")
+    # print(newXZPairs)
+
+    # print(zoom(3, 5, 2, XZpairs))
