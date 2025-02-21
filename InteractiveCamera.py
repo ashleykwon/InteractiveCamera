@@ -10,23 +10,25 @@ app = dash.Dash(__name__)
 
 
 # Apply zoom in/out
-def zoom(Zminimum, Zmaximum, scaleFactor, XZpairs):
+def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
     newXZpairs = []
     # Divide x values in XZpairs by scaleFactor if Z is in the modification range
     for i in range(len(XZpairs)):
         x, z = XZpairs[i]
         if z >= Zminimum and z <= Zmaximum:
-            newXZpairs.append([x/scaleFactor, z])
+            if x >= -1*dZ_slope*z and x <= dZ_slope*z:
+                newXZpairs.append([x*zoomScaleFactor, z])
+            else:
+                newXZpairs.append([x,z])
         else:
             newXZpairs.append([x,z])
     return newXZpairs
 
 
 # Increase or decrease foreshortening
-def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, lineSlope, XZpairs):
+def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, XZpairs):
     newXZpairs = []
-    # XvalsNearZminimum = []
-    # XvalsAtZmaximum = []
+
     # Sort XZ pairs based on their z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
 
@@ -50,18 +52,21 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, lineSlope, XZpairs):
     # Iterate through the dictionary again and modify x values within the Z value range
     for zVal in XvalForEachZ:
         currentXvals = sorted(XvalForEachZ[zVal])
-        if foreshorteningSlope != lineSlope:
+        if foreshorteningSlope != dZ_slope:
             if zVal >= Zminimum and zVal <= Zmaximum:
                 for k in range(len(currentXvals)):
-                    closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
-                    # Transforms x values within the positive x boundary
-                    if currentXvals[k] <= 0:
-                        newX = -1*foreshorteningSlope*(zVal - initialZ) + closestInitialXval
-                        newXZpairs.append([newX, zVal])
-                    # Transforms x values within the negative x boundary
+                    if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
+                        closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
+                        # Transforms x values within the positive x boundary
+                        if currentXvals[k] <= 0:
+                            newX = -1*foreshorteningSlope*(zVal - initialZ) + closestInitialXval
+                            newXZpairs.append([newX, zVal])
+                        # Transforms x values within the negative x boundary
+                        else:
+                            newX = foreshorteningSlope*(zVal - initialZ) + closestInitialXval
+                            newXZpairs.append([newX, zVal])
                     else:
-                        newX = foreshorteningSlope*(zVal - initialZ) + closestInitialXval
-                        newXZpairs.append([newX, zVal])
+                        newXZpairs.append([currentXvals[k], zVal])
             else:
                 for k in range(len(currentXvals)):
                     newXZpairs.append([currentXvals[k], zVal])
@@ -69,62 +74,6 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, lineSlope, XZpairs):
             for k in range(len(currentXvals)):
                 newXZpairs.append([currentXvals[k], zVal])
 
-
-        
-
-    # Iterate over xz pairs and add them to newXZpairs if the Z values are within the z range
-    # for i in range(len(XZpairs)):
-    #     if XZpairs[i][1] >= Zminimum and XZpairs[i][1] <= Zmaximum:
-    #         newXZpairs.append(XZpairs[i])
-    #     # Store in XvalsAtZminimum x values at Zminimum
-    #         if XZpairs[i][1] == Zminimum:
-    #             XvalsNearZminimum.append(XZpairs[i][0])
-    #         if XZpairs[i][1] == Zmaximum:
-    #             XvalsAtZmaximum.append(XZpairs[i][0])
-
-    # Sort pairs in newXZpairs based on z values (ascending)
-    # newXZpairs = sorted(newXZpairs, key=lambda x: x[1])
-    # XvalsNearZminimum = sorted(XvalsNearZminimum)
-
-    # Iterate through newXZpairs
-    # initialZ = newXZpairs[0][1] # smallest z value to begin with
-    # initialXVals = XvalsNearZminimum # x values at the smallest z value to begin with
-    # currentZ = initialZ
-    # currentXVals = []
-    # pairIdx = 0
-
-
-    # while pairIdx < len(newXZpairs):
-    #     # Initiate a while loop and accumulate x-values with the current z-value in a list called currentXVals
-    #     while pairIdx < len(newXZpairs) and newXZpairs[pairIdx][1] == currentZ: 
-    #         currentXVals.append(newXZpairs[pairIdx][0])
-    #         pairIdx += 1
-    #     # Sort currentXVals based on x values (ascending)
-    #     currentXVals = sorted(currentXVals)
-
-    #     # Iterate through XatCurrentZ
-    #     newX = 0
-    #     for k in range(0, len(currentXVals)):
-    #         # Find [currentX, currentZ] in newXZVals and replace the current value currentX to slope*(intitialZ-currentZ) + initialX
-    #         pairToModifyIdx = newXZpairs.index([int(currentXVals[k]), currentZ])
-    #         # Find the closest initial X value to the current X value
-    #         closestInitialXval = min(initialXVals, key=lambda x: abs(x - currentXVals[k]))
-           
-    #         # Transforms x values within the positive x boundary
-    #         if currentXVals[k] <= 0:
-    #             newX = -1*slope*(currentZ - initialZ) + closestInitialXval
-    #             newXZpairs[pairToModifyIdx] = [newX, currentZ]
-    #         # Transforms x values within the negative x boundary
-    #         else:
-    #             newX = slope*(currentZ - initialZ) + closestInitialXval
-    #             newXZpairs[pairToModifyIdx] = [newX, currentZ]
-
-    #     # Update the currentZ value for the next layer of Z
-    #     if pairIdx < len(newXZpairs):
-    #         currentZ = newXZpairs[pairIdx][1]
-
-    #     # Empty the currentXVals list for a new iteration
-    #     currentXVals = []
     return newXZpairs
 
 
@@ -146,7 +95,7 @@ def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope,
     shape = Xcoords.shape
 
     # Apply zoom or foreshortening to points that are in the selected range
-    newXZpairs = zoom(Zminimum, Zmaximum, zoomScaleFactor, [[X, Z] for X, Z in zip(Zcoords, Xcoords)])
+    newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Zcoords, Xcoords)])
     newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
 
     # Reshape dot coordinate arrays for visualization
@@ -300,7 +249,7 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
 
     # Generate initial dots' coordinates
     # X, Y, xDot_vals, yDot_vals_1, yDot_vals_2 = generate_dots(slope, foreshorteningSlope, depthRangeValues)
-    X, Y = generate_dots()
+    initial_X, initial_Y = generate_dots()
     
     # Apply transformation when button is clicked (e.g., shift the dots)
     # TODO: Fix this so that it uses the zoom and foreshortening functions below
@@ -366,16 +315,16 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
                         line=dict(dash='dot', width=2, color='green')),  # Dotted line at x = 0
 
             # Highlight the selected range along Line 1 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for negative x"),
+            go.Scatter(x=selected_x_vals, y=selected_y1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x"),
             
             # Highlight the mirrored selected range on Line 2 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(255, 100, 0, 0.3)', name="Selected depth range for positive x"),
+            go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x"),
 
             # Highlight the section with the different slope
-            go.Scatter(x=x_section, y=y_section, mode='lines', name="Section with Custom Slope", line=dict(color='red', width=3)),
+            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope", line=dict(color='red', width=3)),
 
             # Highlight the mirrored section for the second line
-            go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Section with Custom Slope (Second Line)", line=dict(color='blue', width=3)),
+            go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='red', width=3)),
 
             # Plot the dots
             go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='blue'))
