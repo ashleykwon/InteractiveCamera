@@ -4,10 +4,15 @@ import dash_html_components as html
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 import numpy as np
+import random
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
+
+# Function to generate random color
+def random_color():
+    return f'rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)'
 
 # Apply zoom in/out
 def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
@@ -172,7 +177,7 @@ app.layout = html.Div([
 
     # Slider to adjust the length of both lines
     html.Div([
-        html.Label("Image plane width"),
+        html.Label("Image plane width / 2"),
         dcc.Slider(
             id='ImgPlaneWidth-slider',
             min=1,
@@ -186,28 +191,28 @@ app.layout = html.Div([
 
     # Slider to adjust the slope for both lines (m1 and m2)
     html.Div([
-        html.Label("Zoom scale factor:"),
+        html.Label("Zoom scale factor (Factor > 1 for zoom in):"),
         dcc.Slider(
             id='zoom-slider',
             min=0,
-            max=5,
+            max=7,
             step=0.1,
             value=1,
-            marks={i: f'{i}' for i in range(0, 5, 1)},
+            marks={i: f'{i}' for i in range(0, 7, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
 
     # Slider to adjust the slope for both lines (m1 and m2)
     html.Div([
-        html.Label("Foreshortening slope:"),
+        html.Label("Foreshortening slope (Lower slope to reduce foreshortening):"),
         dcc.Slider(
             id='foreshortening-slider',
-            min=0,
+            min=-2,
             max=5,
             step=0.1,
             value=1,
-            marks={i: f'{i}' for i in range(0, 5, 1)},
+            marks={i: f'{i}' for i in range(-2, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
@@ -254,7 +259,7 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
     # Apply transformation when button is clicked (e.g., shift the dots)
     # TODO: Fix this so that it uses the zoom and foreshortening functions below
     # if n_clicks > 0:
-    X, Y = apply_transformation(X, Y, zoomScaleFactor, foreshorteningSlope, slope, depthRangeValues)
+    X, Y = apply_transformation(initial_X, initial_Y, zoomScaleFactor, foreshorteningSlope, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
     y1_vals = slope * x_vals  # The line with slope 'm'
@@ -303,6 +308,8 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
     # Combine all parts together
     x_all = np.concatenate([x_before, x_section, x_after])
     y_all = np.concatenate([y_before, y_section, y_after])
+
+    updated_color = random_color()
     
     # Define the figure data
     figure = {
@@ -315,19 +322,19 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
                         line=dict(dash='dot', width=2, color='green')),  # Dotted line at x = 0
 
             # Highlight the selected range along Line 1 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x"),
+            go.Scatter(x=selected_x_vals, y=selected_y1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by b(z)"),
             
             # Highlight the mirrored selected range on Line 2 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x"),
+            go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by -b(z)"),
 
             # Highlight the section with the different slope
-            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope", line=dict(color='red', width=3)),
+            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='red', width=3)),
 
             # Highlight the mirrored section for the second line
             go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='red', width=3)),
 
             # Plot the dots
-            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='blue'))
+            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='purple'))
 
         ],
         'layout': go.Layout(
