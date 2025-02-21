@@ -9,28 +9,159 @@ import numpy as np
 app = dash.Dash(__name__)
 
 
+# Apply zoom in/out
+def zoom(Zminimum, Zmaximum, scaleFactor, XZpairs):
+    newXZpairs = []
+    # Divide x values in XZpairs by scaleFactor if Z is in the modification range
+    for i in range(len(XZpairs)):
+        x, z = XZpairs[i]
+        if z >= Zminimum and z <= Zmaximum:
+            newXZpairs.append([x/scaleFactor, z])
+        else:
+            newXZpairs.append([x,z])
+    return newXZpairs
+
+
+# Increase or decrease foreshortening
+def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, lineSlope, XZpairs):
+    newXZpairs = []
+    # XvalsNearZminimum = []
+    # XvalsAtZmaximum = []
+    # Sort XZ pairs based on their z values
+    XZpairs = sorted(XZpairs, key= lambda x:x[1])
+
+    # Make a dictionary with z-values as keys and all x-values with that z-value in a list
+    XvalForEachZ = dict()
+    for i in range(len(XZpairs)):
+        x, z = XZpairs[i]
+        if z not in XvalForEachZ:
+            XvalForEachZ[z] = []
+        XvalForEachZ[z].append(x)
+    XvalForEachZ = dict(sorted(XvalForEachZ.items()))
+    
+    # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
+    initialZ = 1000
+    initialXvals = []
+    for zVal in XvalForEachZ:
+        if zVal >= Zminimum and zVal < initialZ:
+            initialZ = zVal
+            initialXvals = XvalForEachZ[zVal]
+    
+    # Iterate through the dictionary again and modify x values within the Z value range
+    for zVal in XvalForEachZ:
+        currentXvals = sorted(XvalForEachZ[zVal])
+        if foreshorteningSlope != lineSlope:
+            if zVal >= Zminimum and zVal <= Zmaximum:
+                for k in range(len(currentXvals)):
+                    closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
+                    # Transforms x values within the positive x boundary
+                    if currentXvals[k] <= 0:
+                        newX = -1*foreshorteningSlope*(zVal - initialZ) + closestInitialXval
+                        newXZpairs.append([newX, zVal])
+                    # Transforms x values within the negative x boundary
+                    else:
+                        newX = foreshorteningSlope*(zVal - initialZ) + closestInitialXval
+                        newXZpairs.append([newX, zVal])
+            else:
+                for k in range(len(currentXvals)):
+                    newXZpairs.append([currentXvals[k], zVal])
+        else:
+            for k in range(len(currentXvals)):
+                newXZpairs.append([currentXvals[k], zVal])
+
+
+        
+
+    # Iterate over xz pairs and add them to newXZpairs if the Z values are within the z range
+    # for i in range(len(XZpairs)):
+    #     if XZpairs[i][1] >= Zminimum and XZpairs[i][1] <= Zmaximum:
+    #         newXZpairs.append(XZpairs[i])
+    #     # Store in XvalsAtZminimum x values at Zminimum
+    #         if XZpairs[i][1] == Zminimum:
+    #             XvalsNearZminimum.append(XZpairs[i][0])
+    #         if XZpairs[i][1] == Zmaximum:
+    #             XvalsAtZmaximum.append(XZpairs[i][0])
+
+    # Sort pairs in newXZpairs based on z values (ascending)
+    # newXZpairs = sorted(newXZpairs, key=lambda x: x[1])
+    # XvalsNearZminimum = sorted(XvalsNearZminimum)
+
+    # Iterate through newXZpairs
+    # initialZ = newXZpairs[0][1] # smallest z value to begin with
+    # initialXVals = XvalsNearZminimum # x values at the smallest z value to begin with
+    # currentZ = initialZ
+    # currentXVals = []
+    # pairIdx = 0
+
+
+    # while pairIdx < len(newXZpairs):
+    #     # Initiate a while loop and accumulate x-values with the current z-value in a list called currentXVals
+    #     while pairIdx < len(newXZpairs) and newXZpairs[pairIdx][1] == currentZ: 
+    #         currentXVals.append(newXZpairs[pairIdx][0])
+    #         pairIdx += 1
+    #     # Sort currentXVals based on x values (ascending)
+    #     currentXVals = sorted(currentXVals)
+
+    #     # Iterate through XatCurrentZ
+    #     newX = 0
+    #     for k in range(0, len(currentXVals)):
+    #         # Find [currentX, currentZ] in newXZVals and replace the current value currentX to slope*(intitialZ-currentZ) + initialX
+    #         pairToModifyIdx = newXZpairs.index([int(currentXVals[k]), currentZ])
+    #         # Find the closest initial X value to the current X value
+    #         closestInitialXval = min(initialXVals, key=lambda x: abs(x - currentXVals[k]))
+           
+    #         # Transforms x values within the positive x boundary
+    #         if currentXVals[k] <= 0:
+    #             newX = -1*slope*(currentZ - initialZ) + closestInitialXval
+    #             newXZpairs[pairToModifyIdx] = [newX, currentZ]
+    #         # Transforms x values within the negative x boundary
+    #         else:
+    #             newX = slope*(currentZ - initialZ) + closestInitialXval
+    #             newXZpairs[pairToModifyIdx] = [newX, currentZ]
+
+    #     # Update the currentZ value for the next layer of Z
+    #     if pairIdx < len(newXZpairs):
+    #         currentZ = newXZpairs[pairIdx][1]
+
+    #     # Empty the currentXVals list for a new iteration
+    #     currentXVals = []
+    return newXZpairs
+
+
 # Generate initial dot coordinates (arranged as a rectangle between two lines)
-def generate_dots(default_slope, section_slope, section_range):
-    x_min, x_max = section_range
-    
-    # Create 30 random dots between the two lines (simplified version)
-    x_vals = np.linspace(x_min, x_max, 5)  # 5 columns of dots
-    y_vals_1 = default_slope * x_vals      # First line equation
-    y_vals_2 = section_slope * (x_vals - x_min) + default_slope * x_min  # Second line equation
-    
+def generate_dots():
     # Create a 2D grid of dots
-    y_vals = np.linspace(min(y_vals_1), max(y_vals_2), 6)  # 6 rows of dots
+    x_vals = np.linspace(3, 6, 5)  # 5 columns of dots
+    y_vals = np.linspace(-5, 5, 6)
     X, Y = np.meshgrid(x_vals, y_vals)
     
     # Flatten grid
     X_flat = X.flatten()
     Y_flat = Y.flatten()
-    
-    return X_flat, Y_flat, x_vals, y_vals_1, y_vals_2
+    return X_flat, Y_flat
+
+
+def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
+    Zminimum, Zmaximum = section_range
+    shape = Xcoords.shape
+
+    # Apply zoom or foreshortening to points that are in the selected range
+    newXZpairs = zoom(Zminimum, Zmaximum, zoomScaleFactor, [[X, Z] for X, Z in zip(Zcoords, Xcoords)])
+    newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
+
+    # Reshape dot coordinate arrays for visualization
+    x_vals, z_vals = zip(*newXZpairs)
+    x_vals = np.array(x_vals)
+    z_vals = np.array(z_vals)
+    X_flat = x_vals.reshape(shape)
+    Z_flat = z_vals.reshape(shape)
+    return Z_flat, X_flat
+
+
 
 # Create the layout of the app with one slider for slope
 app.layout = html.Div([
-    html.H1("Interactive Vertical Mirror Image Lines with Sliders"),
+    html.H1("Interactive ZoomShop"),
 
     # Slider to adjust the length of both lines
     html.Div([
@@ -40,7 +171,7 @@ app.layout = html.Div([
             min=1,
             max=10,
             step=0.1,
-            value=5,
+            value=2,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
@@ -55,12 +186,13 @@ app.layout = html.Div([
             min=1,
             max=10,
             step=0.1,
-            value=5,
+            value=6,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
 
+    
     # Range slider to select a range along the solid line
     html.Div([
         html.Label("Selected depth range:"),
@@ -70,14 +202,42 @@ app.layout = html.Div([
             max=10,
             step=0.1,
             marks={i: f'{i}' for i in range(0, 11)},
-            value=[2, 8],  # Initial selected range
+            value=[3, 5],  # Initial selected range
+            tooltip={"placement": "bottom", "always_visible": True}
+        ),
+    ], style={'padding': '10px'}),
+
+    # Slider to adjust the length of both lines
+    html.Div([
+        html.Label("Focal length"),
+        dcc.Slider(
+            id='focalLength-slider',
+            min=1,
+            max=10,
+            step=0.1,
+            value=1,
+            marks={i: f'{i}' for i in range(1, 11)},
+            tooltip={"placement": "bottom", "always_visible": True}
+        ),
+    ], style={'padding': '10px'}),
+
+    # Slider to adjust the length of both lines
+    html.Div([
+        html.Label("Image plane width"),
+        dcc.Slider(
+            id='ImgPlaneWidth-slider',
+            min=1,
+            max=10,
+            step=0.1,
+            value=1,
+            marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
 
     # Slider to adjust the slope for both lines (m1 and m2)
     html.Div([
-        html.Label("Zoom:"),
+        html.Label("Zoom scale factor:"),
         dcc.Slider(
             id='zoom-slider',
             min=0,
@@ -104,9 +264,9 @@ app.layout = html.Div([
     ], style={'padding': '10px'}),
 
      # Button to apply transformation to the dots
-    html.Div([
-        html.Button('Apply Transformation', id='apply-button', n_clicks=0)
-    ], style={'padding': '10px'}),
+    # html.Div([
+    #     html.Button('Apply Transformation', id='apply-button', n_clicks=0)
+    # ], style={'padding': '10px'}),
 
 
     # Graph to display the plot
@@ -119,10 +279,12 @@ app.layout = html.Div([
     [
         Input('zoom-slider', 'value'),
         Input('foreshortening-slider', 'value'),
-        Input('apply-button', 'n_clicks'),
+        # Input('apply-button', 'n_clicks'),
         Input('farPlane-slider', 'value'), 
         Input('nearPlane-slider', 'value'),
         Input('depthRange-slider', 'value'),
+        Input('focalLength-slider', 'value'), 
+        Input('ImgPlaneWidth-slider', 'value')
        
     ]
 )
@@ -130,19 +292,20 @@ app.layout = html.Div([
 
 
 
-def update_graph(slope, foreshorteningSlope, n_clicks, line_length, nearPlaneZValue, depthRangeValues):
+def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
     # Calculate the x-values for both lines (from 0 to line_length)
     x_vals = np.linspace(0, line_length, 100)
 
+    slope = ImgPlaneWidth/focalLength
+
     # Generate initial dots' coordinates
-    X, Y, xDot_vals, yDot_vals_1, yDot_vals_2 = generate_dots(slope, foreshorteningSlope, depthRangeValues)
+    # X, Y, xDot_vals, yDot_vals_1, yDot_vals_2 = generate_dots(slope, foreshorteningSlope, depthRangeValues)
+    X, Y = generate_dots()
     
     # Apply transformation when button is clicked (e.g., shift the dots)
     # TODO: Fix this so that it uses the zoom and foreshortening functions below
-    if n_clicks > 0:
-        # For example, translate all dots by (2, 3)
-        X += 2
-        Y += 3
+    # if n_clicks > 0:
+    X, Y = apply_transformation(X, Y, zoomScaleFactor, foreshorteningSlope, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
     y1_vals = slope * x_vals  # The line with slope 'm'
@@ -215,7 +378,7 @@ def update_graph(slope, foreshorteningSlope, n_clicks, line_length, nearPlaneZVa
             go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Section with Custom Slope (Second Line)", line=dict(color='blue', width=3)),
 
             # Plot the dots
-            go.Scatter(x=X, y=Y, mode='markers', name="Dots", marker=dict(size=10, color='blue'))
+            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='blue'))
 
         ],
         'layout': go.Layout(
@@ -237,72 +400,6 @@ def update_graph(slope, foreshorteningSlope, n_clicks, line_length, nearPlaneZVa
     }
     
     return figure
-
-
-# Apply zoom in/out
-def zoom(Zminimum, Zmaximum, scaleFactor, XZpairs):
-    # Divide x values in XZpairs by scaleFactor
-    newXZpairs = [[x/scaleFactor, z] for [x,z] in XZpairs if z >= Zminimum and z <= Zmaximum]
-    return newXZpairs
-
-
-# Increase or decrease foreshortening
-def foreshortening(Zminimum, Zmaximum, slope, XZpairs):
-    newXZpairs = []
-    XvalsAtZminimum = []
-    XvalsAtZmaximum = []
-    # Iterate over xz pairs and add them to newXZpairs if the Z values are within the z range
-    for i in range(len(XZpairs)):
-        if XZpairs[i][1] >= Zminimum and XZpairs[i][1] <= Zmaximum:
-            newXZpairs.append(XZpairs[i])
-        # Store in XvalsAtZminimum x values at Zminimum
-            if XZpairs[i][1] == Zminimum:
-                XvalsAtZminimum.append(XZpairs[i][0])
-            if XZpairs[i][1] == Zmaximum:
-                XvalsAtZmaximum.append(XZpairs[i][0])
-
-    # Sort pairs in newXZpairs based on z values (ascending)
-    newXZpairs = sorted(newXZpairs, key=lambda x: x[1])
-    XvalsAtZminimum = sorted(XvalsAtZminimum)
-
-    # Iterate through newXZpairs
-    initialZ = newXZpairs[0][1] # smallest z value to begin with
-    initialXVals = XvalsAtZminimum # x values at the smallest z value to begin with
-    currentZ = initialZ
-    currentXVals = []
-    pairIdx = 0
-    while pairIdx < len(newXZpairs):
-        # Initiate a while loop and accumulate x-values with the current z-value in a list called currentXVals
-        while pairIdx < len(newXZpairs) and newXZpairs[pairIdx][1] == currentZ: 
-            currentXVals.append(newXZpairs[pairIdx][0])
-            pairIdx += 1
-        # Sort currentXVals based on x values (ascending)
-        currentXVals = sorted(currentXVals)
-
-        # Iterate through XatCurrentZ
-        newX = 0
-        for k in range(0, len(currentXVals)):
-            # Find [currentX, currentZ] in newXZVals and replace the current value currentX to slope*(intitialZ-currentZ) + initialX
-            pairToModifyIdx = newXZpairs.index([int(currentXVals[k]), currentZ])
-            # Find the closest initial X value to the current X value
-            closestInitialXval = min(initialXVals, key=lambda x: abs(x - currentXVals[k]))
-           
-            # Transforms x values within the positive x boundary
-            if currentXVals[k] <= 0:
-                newX = -1*slope*(currentZ - initialZ) + closestInitialXval
-                newXZpairs[pairToModifyIdx] = [newX, currentZ]
-            # Transforms x values within the negative x boundary
-            else:
-                newX = slope*(currentZ - initialZ) + closestInitialXval
-                newXZpairs[pairToModifyIdx] = [newX, currentZ]
-
-        # Update the currentZ value for the next layer of Z
-        if pairIdx < len(newXZpairs):
-            currentZ = newXZpairs[pairIdx][1]
-
-        # Empty the currentXVals list for a new iteration
-        currentXVals = []
-    return newXZpairs
 
 
 #Run the Dash app
