@@ -31,7 +31,7 @@ def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
 
 
 # Increase or decrease foreshortening
-def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, XZpairs):
+def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
     newXZpairs = []
 
     # Sort XZ pairs based on their z values
@@ -57,27 +57,24 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, XZpairs):
     # Iterate through the dictionary again and modify x values within the Z value range
     for zVal in XvalForEachZ:
         currentXvals = sorted(XvalForEachZ[zVal])
-        if foreshorteningSlope != dZ_slope:
-            if zVal >= Zminimum and zVal <= Zmaximum:
-                for k in range(len(currentXvals)):
-                    if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
-                        closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
-                        # Transforms x values within the positive x boundary
-                        if currentXvals[k] <= 0:
-                            newX = -1*foreshorteningSlope*(zVal - initialZ) + closestInitialXval
-                            newXZpairs.append([newX, zVal])
-                        # Transforms x values within the negative x boundary
-                        else:
-                            newX = foreshorteningSlope*(zVal - initialZ) + closestInitialXval
-                            newXZpairs.append([newX, zVal])
+        if zVal >= Zminimum and zVal <= Zmaximum:
+            for k in range(len(currentXvals)):
+                if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
+                    closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
+                    # Transforms x values within the positive x boundary
+                    if currentXvals[k] <= 0:
+                        newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+                        newXZpairs.append([newX, zVal])
+                    # Transforms x values within the negative x boundary
                     else:
-                        newXZpairs.append([currentXvals[k], zVal])
-            else:
-                for k in range(len(currentXvals)):
+                        newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+                        newXZpairs.append([newX, zVal])
+                else:
                     newXZpairs.append([currentXvals[k], zVal])
         else:
             for k in range(len(currentXvals)):
                 newXZpairs.append([currentXvals[k], zVal])
+
 
     return newXZpairs
 
@@ -205,7 +202,7 @@ app.layout = html.Div([
 
     # Slider to adjust the slope for both lines (m1 and m2)
     html.Div([
-        html.Label("Foreshortening slope (Lower slope to reduce foreshortening):"),
+        html.Label("Foreshortening factor (Lower slope to reduce foreshortening):"),
         dcc.Slider(
             id='foreshortening-slider',
             min=-2,
@@ -246,7 +243,7 @@ app.layout = html.Div([
 
 
 
-def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
+def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
     # Calculate the x-values for both lines (from 0 to line_length)
     x_vals = np.linspace(0, line_length, 100)
 
@@ -259,7 +256,7 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
     # Apply transformation when button is clicked (e.g., shift the dots)
     # TODO: Fix this so that it uses the zoom and foreshortening functions below
     # if n_clicks > 0:
-    X, Y = apply_transformation(initial_X, initial_Y, zoomScaleFactor, foreshorteningSlope, slope, depthRangeValues)
+    X, Y = apply_transformation(initial_X, initial_Y, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
     y1_vals = slope * x_vals  # The line with slope 'm'
@@ -287,7 +284,7 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
 
     # Section of the line with the custom slope
     x_section = x_vals[(x_vals >= Zminimum) & (x_vals <= Zmaximum)]
-    y_section = foreshorteningSlope * (x_section - Zminimum) + slope * Zminimum
+    y_section = (slope+foreshorteningFactor) * (x_section - Zminimum) + slope * Zminimum
 
     # After the section
     x_after = x_vals[x_vals > Zmaximum]
@@ -297,7 +294,7 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
     y_default_second = -slope * x_vals
     
     # For the second line, apply the opposite slope in the selected section
-    y_section_second = -foreshorteningSlope * (x_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
+    y_section_second = -(slope+foreshorteningFactor) * (x_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
     
     # After the section, the second line follows the opposite of the default slope
     y_after_second = -slope * x_after
