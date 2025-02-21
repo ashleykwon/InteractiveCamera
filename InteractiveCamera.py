@@ -328,10 +328,10 @@ def update_graph(zoomScaleFactor, foreshorteningSlope, line_length, nearPlaneZVa
             go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by -b(z)"),
 
             # Highlight the section with the different slope
-            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='red', width=3)),
+            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='blue', width=3)),
 
             # Highlight the mirrored section for the second line
-            go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='red', width=3)),
+            go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='blue', width=3)),
 
             # Plot the dots
             go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='purple'))
