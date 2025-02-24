@@ -34,48 +34,51 @@ def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
 def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
     newXZpairs = []
 
-    # Sort XZ pairs based on their z values
-    XZpairs = sorted(XZpairs, key= lambda x:x[1])
+    # Check if the foreshortening factor was modified
+    if foreshorteningFactor != 0:
+        # Sort XZ pairs based on their z values
+        XZpairs = sorted(XZpairs, key= lambda x:x[1])
 
-    # Make a dictionary with z-values as keys and all x-values with that z-value in a list
-    XvalForEachZ = dict()
-    for i in range(len(XZpairs)):
-        x, z = XZpairs[i]
-        if z not in XvalForEachZ:
-            XvalForEachZ[z] = []
-        XvalForEachZ[z].append(x)
-    XvalForEachZ = dict(sorted(XvalForEachZ.items()))
-    
-    # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
-    initialZ = 1000
-    initialXvals = []
-    for zVal in XvalForEachZ:
-        if zVal >= Zminimum and zVal < initialZ:
-            initialZ = zVal
-            initialXvals = XvalForEachZ[zVal]
-    
-    # Iterate through the dictionary again and modify x values within the Z value range
-    for zVal in XvalForEachZ:
-        currentXvals = sorted(XvalForEachZ[zVal])
-        if zVal >= Zminimum and zVal <= Zmaximum:
-            for k in range(len(currentXvals)):
-                if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
-                    closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
-                    # Transforms x values within the positive x boundary
-                    if currentXvals[k] <= 0:
-                        newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-                        newXZpairs.append([newX, zVal])
-                    # Transforms x values within the negative x boundary
+        # Make a dictionary with z-values as keys and all x-values with that z-value in a list
+        XvalForEachZ = dict()
+        for i in range(len(XZpairs)):
+            x, z = XZpairs[i]
+            if z not in XvalForEachZ:
+                XvalForEachZ[z] = []
+            XvalForEachZ[z].append(x)
+        XvalForEachZ = dict(sorted(XvalForEachZ.items()))
+        
+        # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
+        initialZ = 1000
+        initialXvals = []
+        for zVal in XvalForEachZ:
+            if zVal >= Zminimum and zVal < initialZ:
+                initialZ = zVal
+                initialXvals = XvalForEachZ[zVal]
+        
+        # Iterate through the dictionary again and modify x values within the Z value range
+        for zVal in XvalForEachZ:
+            currentXvals = sorted(XvalForEachZ[zVal])
+            if zVal >= Zminimum and zVal <= Zmaximum:
+                for k in range(len(currentXvals)):
+                    if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
+                        closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
+                        # Transforms x values within the positive x boundary
+                        if currentXvals[k] <= 0:
+                            newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+                            newXZpairs.append([newX, zVal])
+                        # Transforms x values within the negative x boundary
+                        else:
+                            newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+                            newXZpairs.append([newX, zVal])
                     else:
-                        newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-                        newXZpairs.append([newX, zVal])
-                else:
+                        newXZpairs.append([currentXvals[k], zVal])
+            else:
+                for k in range(len(currentXvals)):
                     newXZpairs.append([currentXvals[k], zVal])
-        else:
-            for k in range(len(currentXvals)):
-                newXZpairs.append([currentXvals[k], zVal])
 
-
+    else:
+        newXZpairs = XZpairs
     return newXZpairs
 
 
@@ -208,7 +211,7 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.1,
-            value=1,
+            value=0,
             marks={i: f'{i}' for i in range(-2, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
@@ -221,7 +224,9 @@ app.layout = html.Div([
 
 
     # Graph to display the plot
-    dcc.Graph(id='line-intersection-graph')
+    dcc.Graph(id='line-intersection-graph'),
+
+    dcc.Graph(id='uv-plot')
 ])
 
 # Define the callback to update the graph based on the sliders
@@ -352,23 +357,10 @@ def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZV
         )
     }
     
+    
     return figure
 
 
 #Run the Dash app
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-    # XVals = range(-5, 6, 1)
-    # ZVals = range(3, 11, 1)
-    # XZpairs = [[x, z] for x in XVals for z in ZVals]
-
-    # print("Original XZ pairs")
-    # print(XZpairs)
-
-    # newXZPairs = foreshortening(3, 50, 0.2, XZPairs)
-    # print("New XZ pairs after foreshortening")
-    # print(newXZPairs)
-
-     # print("New XZ pairs after zoom")    
-    # print(zoom(3, 5, 2, XZpairs))
