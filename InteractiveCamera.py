@@ -2,6 +2,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
+import plotly.express as px
 from dash.dependencies import Input, Output
 import numpy as np
 import random
@@ -9,10 +10,6 @@ import random
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
-
-# Function to generate random color
-def random_color():
-    return f'rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.7)'
 
 # Apply zoom in/out
 def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
@@ -58,7 +55,7 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
         
         # Iterate through the dictionary again and modify x values within the Z value range
         for zVal in XvalForEachZ:
-            currentXvals = sorted(XvalForEachZ[zVal])
+            currentXvals = XvalForEachZ[zVal]
             if zVal >= Zminimum and zVal <= Zmaximum:
                 for k in range(len(currentXvals)):
                     if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
@@ -92,6 +89,7 @@ def generate_dots():
     # Flatten grid
     X_flat = X.flatten()
     Y_flat = Y.flatten()
+
     return X_flat, Y_flat
 
 
@@ -110,6 +108,33 @@ def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope,
     X_flat = x_vals.reshape(shape)
     Z_flat = z_vals.reshape(shape)
     return Z_flat, X_flat
+
+
+def map_to_uv(XZpairs,nearPlaneZValue, farPlaneZvalue, dZ_slope):
+    u_coordinates = []
+    # Sort XZ pairs based on their z values
+    XZpairs = sorted(XZpairs, key= lambda x:x[1])
+    # Make a dictionary with z-values as keys and all x-values with that z-value in a list
+    XvalForEachZ = dict()
+    for i in range(len(XZpairs)):
+        x, z = XZpairs[i]
+        if z not in XvalForEachZ:
+            XvalForEachZ[z] = []
+        XvalForEachZ[z].append(x)
+    XvalForEachZ = dict(sorted(XvalForEachZ.items(), reverse=True))
+    chosen_coordinates = np.zeros((len(XvalForEachZ), len(XvalForEachZ[next(iter(XvalForEachZ))])), dtype=bool)
+
+    # Iterate through the dictionary and append u coordinates in descending depth order to render shorter depths at the front
+    for j in range(len(XvalForEachZ)):
+        zVal = list(XvalForEachZ.keys())[j]
+        if zVal >= nearPlaneZValue and zVal <= farPlaneZvalue:
+            currentXvals = sorted(XvalForEachZ[zVal], reverse=True)
+            u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals if x >= -dZ_slope*zVal and x <= dZ_slope*zVal]
+            chosen_coords_for_currentXs = [bool(x >= -dZ_slope*zVal and x <= dZ_slope*zVal) for x in currentXvals]
+            u_coordinates += u_coords_for_currentXs
+            chosen_coordinates[j] = chosen_coords_for_currentXs
+    chosen_coordinates = chosen_coordinates.T.flatten()
+    return u_coordinates, chosen_coordinates
 
 
 
@@ -235,7 +260,6 @@ app.layout = html.Div([
     [
         Input('zoom-slider', 'value'),
         Input('foreshortening-slider', 'value'),
-        # Input('apply-button', 'n_clicks'),
         Input('farPlane-slider', 'value'), 
         Input('nearPlane-slider', 'value'),
         Input('depthRange-slider', 'value'),
@@ -248,7 +272,7 @@ app.layout = html.Div([
 
 
 
-def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
+def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
     # Calculate the x-values for both lines (from 0 to line_length)
     x_vals = np.linspace(0, line_length, 100)
 
@@ -259,8 +283,6 @@ def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZV
     initial_X, initial_Y = generate_dots()
     
     # Apply transformation when button is clicked (e.g., shift the dots)
-    # TODO: Fix this so that it uses the zoom and foreshortening functions below
-    # if n_clicks > 0:
     X, Y = apply_transformation(initial_X, initial_Y, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
@@ -284,35 +306,20 @@ def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZV
     selected_y1_vals = slope * selected_x_vals
     selected_y2_vals = -slope * selected_x_vals  # Mirrored points on the second line
 
-    x_before = x_vals[x_vals < Zminimum]
-    y_before = slope * x_before
-
-    # Section of the line with the custom slope
+    # # Section of the line with the custom slope
     x_section = x_vals[(x_vals >= Zminimum) & (x_vals <= Zmaximum)]
     y_section = (slope+foreshorteningFactor) * (x_section - Zminimum) + slope * Zminimum
 
-    # After the section
-    x_after = x_vals[x_vals > Zmaximum]
-    y_after = slope * x_after
-
-    # For the second line, the slope is negative (mirrored)
-    y_default_second = -slope * x_vals
-    
-    # For the second line, apply the opposite slope in the selected section
+    # # For the second line, apply the opposite slope in the selected section
     y_section_second = -(slope+foreshorteningFactor) * (x_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
     
-    # After the section, the second line follows the opposite of the default slope
-    y_after_second = -slope * x_after
 
-    # Combine all parts together for the second line
-    y_all_second = np.concatenate([y_before, y_section_second, y_after_second])
-    
-    # Combine all parts together
-    x_all = np.concatenate([x_before, x_section, x_after])
-    y_all = np.concatenate([y_before, y_section, y_after])
+    # Create a color scale function
+    # This will map each x value to a color from the colorscale
+    color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
+    norm_x = [(val - min(X)) / (max(X) - min(X)) for val in X]  # Normalize x values to [0, 1]
+    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
 
-    updated_color = random_color()
-    
     # Define the figure data
     figure = {
         'data': [
@@ -336,7 +343,7 @@ def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZV
             go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='blue', width=3)),
 
             # Plot the dots
-            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color='purple'))
+            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color=color_list))
 
         ],
         'layout': go.Layout(
@@ -357,7 +364,71 @@ def update_graph(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZV
         )
     }
     
+    return figure
+
+
+# Define the callback to update the graph based on the sliders
+@app.callback(
+    Output('uv-plot', 'figure'),
+    [
+        Input('zoom-slider', 'value'),
+        Input('foreshortening-slider', 'value'),
+        Input('nearPlane-slider', 'value'),
+        Input('farPlane-slider', 'value'), 
+        Input('depthRange-slider', 'value'),
+        Input('focalLength-slider', 'value'), 
+        Input('ImgPlaneWidth-slider', 'value')
+       
+    ]
+)
+
+
+def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPlaneZvalue, depthRangeValues, focalLength, ImgPlaneWidth):
+    # Generate initial dots
+    initial_X, initial_Z = generate_dots()
+    slope = ImgPlaneWidth/focalLength
     
+    # Apply transformation
+    X, Z = apply_transformation(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
+
+    # Create a color scale function
+    # This will map each x value to a color from the colorscale
+    color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
+    norm_x = [(val - min(initial_X)) / (max(initial_X) - min(initial_X)) for val in initial_X]  # Normalize x values to [0, 1]
+    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
+    color_list.reverse()
+
+    # Derive u and v coordinates
+    u_coordinates, chosen_coordinates = map_to_uv([[x, z] for x, z in zip(Z, X)], nearPlaneZValue, farPlaneZvalue, slope)
+    v_coordinates = [0]*len(u_coordinates) # set to 0 
+    
+    # Get colors of chosen coordinates (visible from the camera)
+    masked_color_list = [color for color, mask in zip(color_list, chosen_coordinates) if mask]
+    
+    figure = {
+        'data': [
+            # Plot the dots
+            go.Scatter(x=u_coordinates, y = v_coordinates, mode='markers', name="U coordinate", marker=dict(size=30, color=masked_color_list))
+
+        ],
+        'layout': go.Layout(
+            title="Rendered image",
+            xaxis={
+                'title': 'U', # Adjusted to represent horizontal axis
+                'range': [-1.5, 1.5],  # Set x-axis range
+                'showgrid': True,  # Show gridlines
+                'zeroline': True,  # Show the zero line
+            },
+            yaxis={
+                'title': 'V',  # Adjusted to represent vertical axis
+                'range': [-1, 1],  # Set y-axis range
+                'showgrid': True,  # Show gridlines
+                'zeroline': True,  # Show the zero line
+            },
+            showlegend=True
+        )
+    }
+
     return figure
 
 
