@@ -242,12 +242,6 @@ app.layout = html.Div([
         ),
     ], style={'padding': '10px'}),
 
-     # Button to apply transformation to the dots
-    # html.Div([
-    #     html.Button('Apply Transformation', id='apply-button', n_clicks=0)
-    # ], style={'padding': '10px'}),
-
-
     # Graph to display the plot
     dcc.Graph(id='line-intersection-graph'),
 
