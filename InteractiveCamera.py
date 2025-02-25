@@ -82,15 +82,15 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
 # Generate initial dot coordinates (arranged as a rectangle between two lines)
 def generate_dots():
     # Create a 2D grid of dots
-    x_vals = np.linspace(3, 6, 5)  # 5 columns of dots
-    y_vals = np.linspace(-5, 5, 6)
-    X, Y = np.meshgrid(x_vals, y_vals)
+    x_vals = np.linspace(-5, 5, 6) 
+    z_vals = np.linspace(3, 6, 5)
+    X, Z = np.meshgrid(x_vals, z_vals)
     
     # Flatten grid
     X_flat = X.flatten()
-    Y_flat = Y.flatten()
+    Z_flat = Z.flatten()
 
-    return X_flat, Y_flat
+    return X_flat, Z_flat
 
 
 def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
@@ -98,7 +98,7 @@ def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope,
     shape = Xcoords.shape
 
     # Apply zoom or foreshortening to points that are in the selected range
-    newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Zcoords, Xcoords)])
+    newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Xcoords, Zcoords)])
     newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
 
     # Reshape dot coordinate arrays for visualization
@@ -107,7 +107,7 @@ def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope,
     z_vals = np.array(z_vals)
     X_flat = x_vals.reshape(shape)
     Z_flat = z_vals.reshape(shape)
-    return Z_flat, X_flat
+    return X_flat, Z_flat
 
 
 def map_to_uv(XZpairs,nearPlaneZValue, farPlaneZvalue, dZ_slope):
@@ -133,7 +133,7 @@ def map_to_uv(XZpairs,nearPlaneZValue, farPlaneZvalue, dZ_slope):
             chosen_coords_for_currentXs = [bool(x >= -dZ_slope*zVal and x <= dZ_slope*zVal) for x in currentXvals]
             u_coordinates += u_coords_for_currentXs
             chosen_coordinates[j] = chosen_coords_for_currentXs
-    chosen_coordinates = chosen_coordinates.T.flatten()
+    chosen_coordinates = chosen_coordinates.flatten()
     return u_coordinates, chosen_coordinates
 
 
@@ -264,80 +264,85 @@ app.layout = html.Div([
 )
 
 
-
-
 def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
     # Calculate the x-values for both lines (from 0 to line_length)
-    x_vals = np.linspace(0, line_length, 100)
+    z_vals = np.linspace(0, line_length, 100)
 
     slope = ImgPlaneWidth/focalLength
 
     # Generate initial dots' coordinates
     # X, Y, xDot_vals, yDot_vals_1, yDot_vals_2 = generate_dots(slope, foreshorteningSlope, depthRangeValues)
-    initial_X, initial_Y = generate_dots()
+    initial_X, initial_Z = generate_dots()
     
     # Apply transformation when button is clicked (e.g., shift the dots)
-    X, Y = apply_transformation(initial_X, initial_Y, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
+    X, Z = apply_transformation(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
-    y1_vals = slope * x_vals  # The line with slope 'm'
-    y2_vals = -slope * x_vals  # The line with slope '-m'
+    x1_vals = slope * z_vals  # The line with slope 'm'
+    x2_vals = -slope * z_vals  # The line with slope '-m'
 
     x_intersect1 = nearPlaneZValue / slope  # Intersection with the first line (upward slope)
     x_intersect2 = -nearPlaneZValue / slope
 
-    vertical_line_x =[x_vals[-1], x_vals[-1]]  # x = 0 y1_vals[-1], y2_vals[-1]
-    vertical_line_y = [y1_vals[-1], y2_vals[-1]]
+    vertical_line_z =[z_vals[-1], z_vals[-1]]  # x = 0 y1_vals[-1], y2_vals[-1]
+    vertical_line_x = [x1_vals[-1], x2_vals[-1]]
 
-    nearPlanel_line_x =[nearPlaneZValue, nearPlaneZValue]  # x = 0 y1_vals[-1], y2_vals[-1]
-    nearPlanel_line_y = [x_intersect1,x_intersect2]
+    nearPlanel_line_z =[nearPlaneZValue, nearPlaneZValue]  # x = 0 y1_vals[-1], y2_vals[-1]
+    nearPlanel_line_x = [x_intersect1,x_intersect2]
 
     # Get the selected range from the range slider
     Zminimum, Zmaximum = depthRangeValues
 
     # Select the part of the first line between the selected range
-    selected_x_vals = x_vals[(x_vals >= Zminimum) & (x_vals <= Zmaximum)]
-    selected_y1_vals = slope * selected_x_vals
-    selected_y2_vals = -slope * selected_x_vals  # Mirrored points on the second line
+    selected_z_vals = z_vals[(z_vals >= Zminimum) & (z_vals <= Zmaximum)]
+    selected_x1_vals = slope * selected_z_vals
+    selected_x2_vals = -slope * selected_z_vals  # Mirrored points on the second line
 
     # # Section of the line with the custom slope
-    x_section = x_vals[(x_vals >= Zminimum) & (x_vals <= Zmaximum)]
-    y_section = (slope+foreshorteningFactor) * (x_section - Zminimum) + slope * Zminimum
+    z_section = z_vals[(z_vals >= Zminimum) & (z_vals <= Zmaximum)]
+    x_section = (slope+foreshorteningFactor) * (z_section - Zminimum) + slope * Zminimum
 
     # # For the second line, apply the opposite slope in the selected section
-    y_section_second = -(slope+foreshorteningFactor) * (x_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
+    x_section_second = -(slope+foreshorteningFactor) * (z_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
     
 
     # Create a color scale function
     # This will map each x value to a color from the colorscale
     color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
-    norm_x = [(val - min(X)) / (max(X) - min(X)) for val in X]  # Normalize x values to [0, 1]
+    norm_x = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
     color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
 
     # Define the figure data
     figure = {
         'data': [
-            go.Scatter(x=x_vals, y=y1_vals, mode='lines', name=f'b(z) (Slope={slope:.2f})', line=dict(color='orange', width=3)),
-            go.Scatter(x=x_vals, y=y2_vals, mode='lines', name=f'-b(z) (Slope={-slope:.2f})', line=dict(color='orange', width=3)),
-            go.Scatter(x=vertical_line_x, y=vertical_line_y, mode='lines', name="Far plane",
+            # Solid line along b(z) 
+            go.Scatter(x=z_vals, y=x1_vals, mode='lines', name=f'b(z) (Slope={slope:.2f})', line=dict(color='orange', width=3)),
+
+            # Solid line along -b(z) 
+            go.Scatter(x=z_vals, y=x2_vals, mode='lines', name=f'-b(z) (Slope={-slope:.2f})', line=dict(color='orange', width=3)),
+            
+            # Dotted line at far plane
+            go.Scatter(x=vertical_line_z, y=vertical_line_x, mode='lines', name="Far plane",
                        line=dict(dash='dot', width=2, color='red')),
-            go.Scatter(x=nearPlanel_line_x, y=nearPlanel_line_y, mode='lines', name="Near plane",
-                        line=dict(dash='dot', width=2, color='green')),  # Dotted line at x = 0
+            
+            # Dotted line at near plane 
+            go.Scatter(x=nearPlanel_line_z, y=nearPlanel_line_x, mode='lines', name="Near plane",
+                        line=dict(dash='dot', width=2, color='green')),  
 
             # Highlight the selected range along Line 1 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by b(z)"),
+            go.Scatter(x=selected_z_vals, y=selected_x1_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by b(z)"),
             
             # Highlight the mirrored selected range on Line 2 (highlight area)
-            go.Scatter(x=selected_x_vals, y=selected_y2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by -b(z)"),
+            go.Scatter(x=selected_z_vals, y=selected_x2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by -b(z)"),
 
             # Highlight the section with the different slope
-            go.Scatter(x=x_section, y=y_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='blue', width=3)),
+            go.Scatter(x=z_section, y=x_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='blue', width=3)),
 
             # Highlight the mirrored section for the second line
-            go.Scatter(x=x_section, y=y_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='blue', width=3)),
+            go.Scatter(x=z_section, y=x_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='blue', width=3)),
 
             # Plot the dots
-            go.Scatter(x=X, y=Y, mode='markers', name="World coordinates", marker=dict(size=10, color=color_list))
+            go.Scatter(x=Z, y=X, mode='markers', name="World coordinates", marker=dict(size=10, color=color_list))
 
         ],
         'layout': go.Layout(
@@ -388,12 +393,12 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     # Create a color scale function
     # This will map each x value to a color from the colorscale
     color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
-    norm_x = [(val - min(initial_X)) / (max(initial_X) - min(initial_X)) for val in initial_X]  # Normalize x values to [0, 1]
+    norm_x = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
     color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
     color_list.reverse()
 
     # Derive u and v coordinates
-    u_coordinates, chosen_coordinates = map_to_uv([[x, z] for x, z in zip(Z, X)], nearPlaneZValue, farPlaneZvalue, slope)
+    u_coordinates, chosen_coordinates = map_to_uv([[x, z] for x, z in zip(X, Z)], nearPlaneZValue, farPlaneZvalue, slope)
     v_coordinates = [0]*len(u_coordinates) # set to 0 
     
     # Get colors of chosen coordinates (visible from the camera)
@@ -402,7 +407,7 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     figure = {
         'data': [
             # Plot the dots
-            go.Scatter(x=u_coordinates, y = v_coordinates, mode='markers', name="U coordinate", marker=dict(size=30, color=masked_color_list))
+            go.Scatter(x=u_coordinates, y=v_coordinates, mode='markers', name="U coordinate", marker=dict(size=30, color=masked_color_list))
 
         ],
         'layout': go.Layout(
