@@ -125,28 +125,29 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
             XvalForEachZ[z] = []
         XvalForEachZ[z].append(x)
     XvalForEachZ = dict(sorted(XvalForEachZ.items(), reverse=True))
-    chosen_coordinates = np.zeros((len(XvalForEachZ), len(XvalForEachZ[next(iter(XvalForEachZ))])), dtype=bool)
-
-    # Define a new slope with the foreshorteningFactor
+    
+    # Define a new slope with foreshorteningFactor
     newSlope = dZ_slope + foreshorteningFactor
 
-    # Iterate through the dictionary and append u coordinates in descending depth order to render shorter depths at the front
+    # Iterate through the dictionary and derive u coordinates
     u_coordinates = []
+    chosen_coordinates = np.zeros((len(XvalForEachZ), len(XvalForEachZ[next(iter(XvalForEachZ))])), dtype=bool) # Boolean mask to decide which u coorinate to render
     for j in range(len(XvalForEachZ)):
         zVal = list(XvalForEachZ.keys())[j]
         if zVal >= Zminimum and zVal <= Zmaximum:
             currentXvals = sorted(XvalForEachZ[zVal], reverse=True)
             # Apply zoom and foreshortening to coordinates within the selected depth range
             if zVal >= selected_Zminimum and zVal <= selected_Zmaximum:
-                # Apply foreshortening and zoom and then apply transformation to uv
+                # Apply foreshortening and zoom and then apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
                 u_coords_for_currentXs = [x/(newSlope*zVal*zoomScaleFactor) for x in currentXvals if abs(x) <= abs(newSlope)*zVal*zoomScaleFactor]
                 u_coordinates += u_coords_for_currentXs
-                    # Keep track of coordinates to render
+                # Keep track of coordinates to render
                 chosen_coords_for_currentXs = [bool(abs(x) <= abs(newSlope)*zVal*zoomScaleFactor) for x in currentXvals]
                 chosen_coordinates[j] = chosen_coords_for_currentXs
-            # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes
+            
+            # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
             else:
-                # Apply transformation to uv
+                # Apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
                 u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals if abs(x) <= abs(dZ_slope)*zVal]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
@@ -157,11 +158,11 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
 
 
 
-# Create the layout of the app with one slider for slope
+# Create the layout of the app 
 app.layout = html.Div([
     html.H1("Interactive ZoomShop"),
 
-    # Slider to adjust the length of both lines
+    # Near plane slider
     html.Div([
         html.Label("Near plane z value"),
         dcc.Slider(
@@ -176,7 +177,7 @@ app.layout = html.Div([
     ], style={'padding': '10px'}),
 
 
-    # Slider to adjust the length of both lines
+    # Far plane slider
     html.Div([
         html.Label("Far plane z value"),
         dcc.Slider(
@@ -191,7 +192,7 @@ app.layout = html.Div([
     ], style={'padding': '10px'}),
 
     
-    # Range slider to select a range along the solid line
+    # Selected depth range double slider
     html.Div([
         html.Label("Selected depth range:"),
         dcc.RangeSlider(
@@ -205,7 +206,7 @@ app.layout = html.Div([
         ),
     ], style={'padding': '10px'}),
 
-    # Slider to adjust the length of both lines
+    # Focal length slider
     html.Div([
         html.Label("Focal length"),
         dcc.Slider(
@@ -219,7 +220,7 @@ app.layout = html.Div([
         ),
     ], style={'padding': '10px'}),
 
-    # Slider to adjust the length of both lines
+    # Image plane width / 2 slider
     html.Div([
         html.Label("Image plane width / 2"),
         dcc.Slider(
@@ -233,9 +234,9 @@ app.layout = html.Div([
         ),
     ], style={'padding': '10px'}),
 
-    # Slider to adjust the slope for both lines (m1 and m2)
+    # Zoom scale factor slider
     html.Div([
-        html.Label("Zoom scale factor (Factor > 1 for zoom in):"),
+        html.Label("Zoom scale factor (Factor < 1 for zoom in):"),
         dcc.Slider(
             id='zoom-slider',
             min=0,
@@ -247,7 +248,7 @@ app.layout = html.Div([
         ),
     ], style={'padding': '10px'}),
 
-    # Slider to adjust the slope for both lines (m1 and m2)
+    # Foreshortening factor slider
     html.Div([
         html.Label("Foreshortening factor (Lower slope to reduce foreshortening):"),
         dcc.Slider(
@@ -282,31 +283,31 @@ app.layout = html.Div([
     ]
 )
 
-
+# Update the camera model with world coordinates
 def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, nearPlaneZValue, depthRangeValues, focalLength, ImgPlaneWidth):
-    # Calculate the x-values for both lines (from 0 to line_length)
     z_vals = np.linspace(0, line_length, 100)
 
     slope = ImgPlaneWidth/focalLength
 
-    # Generate initial dots' coordinates
-    # X, Y, xDot_vals, yDot_vals_1, yDot_vals_2 = generate_dots(slope, foreshorteningSlope, depthRangeValues)
+    # Generate initial world coordinates
     initial_X, initial_Z = generate_dots()
     
-    # Apply transformation when button is clicked (e.g., shift the dots)
+    # Apply transformation to world coordinates
     X, Z = apply_transformation_3d(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     
-    # Calculate the y-values for both lines based on the slopes (swap x and y)
-    x1_vals = slope * z_vals  # The line with slope 'm'
-    x2_vals = -slope * z_vals  # The line with slope '-m'
+    # Calculate the x-values for both lines 
+    x1_vals = slope * z_vals  
+    x2_vals = -slope * z_vals
 
     x_intersect1 = nearPlaneZValue / slope  # Intersection with the first line (upward slope)
     x_intersect2 = -nearPlaneZValue / slope
 
-    vertical_line_z =[z_vals[-1], z_vals[-1]]  # x = 0 y1_vals[-1], y2_vals[-1]
+    # Coodinates to draw near and far planes
+    # Far plane
+    vertical_line_z =[z_vals[-1], z_vals[-1]]  
     vertical_line_x = [x1_vals[-1], x2_vals[-1]]
-
-    nearPlanel_line_z =[nearPlaneZValue, nearPlaneZValue]  # x = 0 y1_vals[-1], y2_vals[-1]
+    # Near plane
+    nearPlanel_line_z =[nearPlaneZValue, nearPlaneZValue]  
     nearPlanel_line_x = [x_intersect1,x_intersect2]
 
     # Get the selected range from the range slider
@@ -317,7 +318,7 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, near
     selected_x1_vals = slope * selected_z_vals
     selected_x2_vals = -slope * selected_z_vals  # Mirrored points on the second line
 
-    # # Section of the line with the custom slope
+    # Section of the line with modified slope for foreshortening
     z_section = z_vals[(z_vals >= Zminimum) & (z_vals <= Zmaximum)]
     x_section = (slope+foreshorteningFactor) * (z_section - Zminimum) + slope * Zminimum
 
@@ -325,11 +326,11 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, near
     x_section_second = -(slope+foreshorteningFactor) * (z_section - Zminimum) - slope * Zminimum  # Adjust for starting y-value
     
 
-    # Create a color scale function
+    # Create a color scale function to render coordinate colors
     # This will map each x value to a color from the colorscale
     color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
-    norm_x = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
-    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
+    norm_z = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
+    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_z]
 
     # Define the figure data
     figure = {
@@ -354,13 +355,13 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, near
             # Highlight the mirrored selected range on Line 2 (highlight area)
             go.Scatter(x=selected_z_vals, y=selected_x2_vals, mode='lines', fill='tozeroy', fillcolor='rgba(0, 100, 255, 0.3)', name="Selected depth range for x bound by -b(z)"),
 
-            # Highlight the section with the different slope
+            # Foreshortening slope on b(z)
             go.Scatter(x=z_section, y=x_section, mode='lines', name="Foreshortening Slope for b(z)", line=dict(color='blue', width=3)),
 
-            # Highlight the mirrored section for the second line
+            # Foreshortening slope on -b(z)
             go.Scatter(x=z_section, y=x_section_second, mode='lines', name="Foreshortening Slope for -b(z)", line=dict(color='blue', width=3)),
 
-            # Plot the dots
+            # World coordinates
             go.Scatter(x=Z, y=X, mode='markers', name="World coordinates", marker=dict(size=10, color=color_list))
 
         ],
@@ -402,15 +403,14 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, near
 
 
 def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPlaneZvalue, depthRangeValues, focalLength, ImgPlaneWidth):
-    # Generate initial dots
+    # Generate initial world coordinates
     initial_X, initial_Z = generate_dots()
     slope = ImgPlaneWidth/focalLength
     
-    # Create a color scale function
-    # This will map each x value to a color from the colorscale
+    # Create a color scale function for uv coordinates
     color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
-    norm_x = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
-    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
+    norm_z = [(val - min(initial_Z)) / (max(initial_Z) - min(initial_Z)) for val in initial_Z]  # Normalize x values to [0, 1]
+    color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_z]
     color_list.reverse()
 
 
@@ -420,11 +420,10 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     
     # Get colors of chosen coordinates (visible from the camera)
     masked_color_list = [color for color, mask in zip(color_list, chosen_coordinates) if mask]
-    # if 
     
     figure = {
         'data': [
-            # Plot the dots
+            # Plot the uv coordinates
             go.Scatter(x=u_coordinates, y=v_coordinates, mode='markers', name="U coordinate", marker=dict(size=30, color=masked_color_list))
 
         ],
@@ -432,13 +431,13 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
             title="Rendered image",
             xaxis={
                 'title': 'U', # Adjusted to represent horizontal axis
-                'range': [-1.5, 1.5],  # Set x-axis range
+                'range': [-1.5, 1.5],  # Set U-axis range
                 'showgrid': True,  # Show gridlines
                 'zeroline': True,  # Show the zero line
             },
             yaxis={
                 'title': 'V',  # Adjusted to represent vertical axis
-                'range': [-1, 1],  # Set y-axis range
+                'range': [-1, 1],  # Set V-axis range
                 'showgrid': True,  # Show gridlines
                 'zeroline': True,  # Show the zero line
             },
