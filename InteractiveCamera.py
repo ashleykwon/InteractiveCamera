@@ -11,7 +11,7 @@ import random
 app = dash.Dash(__name__)
 
 
-# Apply zoom in/out
+# Apply zoom in/out in 3D
 def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
     newXZpairs = []
     # Divide x values in XZpairs by scaleFactor if Z is in the modification range
@@ -19,7 +19,7 @@ def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
         x, z = XZpairs[i]
         if z >= Zminimum and z <= Zmaximum:
             if x >= -1*dZ_slope*z and x <= dZ_slope*z:
-                newXZpairs.append([x*zoomScaleFactor, z])
+                newXZpairs.append([x/zoomScaleFactor, z])
             else:
                 newXZpairs.append([x,z])
         else:
@@ -46,13 +46,13 @@ def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
         XvalForEachZ = dict(sorted(XvalForEachZ.items()))
         
         # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
-        initialZ = 1000
+        initialZ = Zminimum
         initialXvals = []
         for zVal in XvalForEachZ:
-            if zVal >= Zminimum and zVal < initialZ:
-                initialZ = zVal
+            if zVal >= Zminimum:
+                # initialZ = zVal
                 initialXvals = XvalForEachZ[zVal]
-        
+
         # Iterate through the dictionary again and modify x values within the Z value range
         for zVal in XvalForEachZ:
             currentXvals = XvalForEachZ[zVal]
@@ -93,7 +93,7 @@ def generate_dots():
     return X_flat, Z_flat
 
 
-def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
+def apply_transformation_3d(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
     Zminimum, Zmaximum = section_range
     shape = Xcoords.shape
 
@@ -110,10 +110,13 @@ def apply_transformation(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope,
     return X_flat, Z_flat
 
 
-def map_to_uv(XZpairs,nearPlaneZValue, farPlaneZvalue, dZ_slope):
-    u_coordinates = []
+def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
+
+    # Define selected minimum and maximum z range values
+    selected_Zminimum, selected_Zmaximum = depthRangeValues
+
     # Make a dictionary with z-values as keys and all x-values with that z-value in a list
     XvalForEachZ = dict()
     for i in range(len(XZpairs)):
@@ -124,15 +127,31 @@ def map_to_uv(XZpairs,nearPlaneZValue, farPlaneZvalue, dZ_slope):
     XvalForEachZ = dict(sorted(XvalForEachZ.items(), reverse=True))
     chosen_coordinates = np.zeros((len(XvalForEachZ), len(XvalForEachZ[next(iter(XvalForEachZ))])), dtype=bool)
 
+    # Define a new slope with the foreshorteningFactor
+    newSlope = dZ_slope + foreshorteningFactor
+
     # Iterate through the dictionary and append u coordinates in descending depth order to render shorter depths at the front
+    u_coordinates = []
     for j in range(len(XvalForEachZ)):
         zVal = list(XvalForEachZ.keys())[j]
-        if zVal >= nearPlaneZValue and zVal <= farPlaneZvalue:
+        if zVal >= Zminimum and zVal <= Zmaximum:
             currentXvals = sorted(XvalForEachZ[zVal], reverse=True)
-            u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals if x >= -dZ_slope*zVal and x <= dZ_slope*zVal]
-            chosen_coords_for_currentXs = [bool(x >= -dZ_slope*zVal and x <= dZ_slope*zVal) for x in currentXvals]
-            u_coordinates += u_coords_for_currentXs
-            chosen_coordinates[j] = chosen_coords_for_currentXs
+            # Apply zoom and foreshortening to coordinates within the selected depth range
+            if zVal >= selected_Zminimum and zVal <= selected_Zmaximum:
+                # Apply foreshortening and zoom and then apply transformation to uv
+                u_coords_for_currentXs = [x/(newSlope*zVal*zoomScaleFactor) for x in currentXvals if abs(x) <= abs(newSlope)*zVal*zoomScaleFactor]
+                u_coordinates += u_coords_for_currentXs
+                    # Keep track of coordinates to render
+                chosen_coords_for_currentXs = [bool(abs(x) <= abs(newSlope)*zVal*zoomScaleFactor) for x in currentXvals]
+                chosen_coordinates[j] = chosen_coords_for_currentXs
+            # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes
+            else:
+                # Apply transformation to uv
+                u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals if abs(x) <= abs(dZ_slope)*zVal]
+                u_coordinates += u_coords_for_currentXs
+                # Keep track of coordinates to render
+                chosen_coords_for_currentXs = [bool(abs(x) <= abs(dZ_slope)*zVal) for x in currentXvals]
+                chosen_coordinates[j] = chosen_coords_for_currentXs
     chosen_coordinates = chosen_coordinates.flatten()
     return u_coordinates, chosen_coordinates
 
@@ -275,7 +294,7 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, line_length, near
     initial_X, initial_Z = generate_dots()
     
     # Apply transformation when button is clicked (e.g., shift the dots)
-    X, Z = apply_transformation(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
+    X, Z = apply_transformation_3d(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     
     # Calculate the y-values for both lines based on the slopes (swap x and y)
     x1_vals = slope * z_vals  # The line with slope 'm'
@@ -387,9 +406,6 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     initial_X, initial_Z = generate_dots()
     slope = ImgPlaneWidth/focalLength
     
-    # Apply transformation
-    X, Z = apply_transformation(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
-
     # Create a color scale function
     # This will map each x value to a color from the colorscale
     color_scale = px.colors.sequential.Rainbow  # Get the color scale as a list
@@ -397,12 +413,14 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_x]
     color_list.reverse()
 
-    # Derive u and v coordinates
-    u_coordinates, chosen_coordinates = map_to_uv([[x, z] for x, z in zip(X, Z)], nearPlaneZValue, farPlaneZvalue, slope)
+
+    # Derive u and v coordinates after transformation
+    u_coordinates, chosen_coordinates = apply_transformation_uv(nearPlaneZValue, farPlaneZvalue, depthRangeValues, slope, zoomScaleFactor, foreshorteningFactor, [[x, z] for x, z in zip(initial_X, initial_Z)])
     v_coordinates = [0]*len(u_coordinates) # set to 0 
     
     # Get colors of chosen coordinates (visible from the camera)
     masked_color_list = [color for color, mask in zip(color_list, chosen_coordinates) if mask]
+    # if 
     
     figure = {
         'data': [
@@ -431,6 +449,6 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     return figure
 
 
-#Run the Dash app
+#Run# Keep track of modified coordinate the Dash app
 if __name__ == '__main__':
     app.run_server(debug=True)
