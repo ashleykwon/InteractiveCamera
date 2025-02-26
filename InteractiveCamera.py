@@ -139,10 +139,10 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
             # Apply zoom and foreshortening to coordinates within the selected depth range
             if zVal >= selected_Zminimum and zVal <= selected_Zmaximum:
                 # Apply foreshortening and zoom and then apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
-                u_coords_for_currentXs = [x/(newSlope*zVal*zoomScaleFactor) for x in currentXvals if abs(x) <= abs(newSlope)*zVal*zoomScaleFactor]
+                u_coords_for_currentXs = [x/((newSlope/zoomScaleFactor)*zVal) for x in currentXvals if abs(x) <= abs(newSlope/zoomScaleFactor)*zVal]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
-                chosen_coords_for_currentXs = [bool(abs(x) <= abs(newSlope)*zVal*zoomScaleFactor) for x in currentXvals]
+                chosen_coords_for_currentXs = [bool(abs(x) <= abs(newSlope/zoomScaleFactor)*zVal) for x in currentXvals]
                 chosen_coordinates[j] = chosen_coords_for_currentXs
             
             # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
@@ -169,7 +169,7 @@ app.layout = html.Div([
             id='nearPlane-slider',
             min=1,
             max=10,
-            step=0.1,
+            step=0.01,
             value=2,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -184,7 +184,7 @@ app.layout = html.Div([
             id='farPlane-slider',
             min=1,
             max=10,
-            step=0.1,
+            step=0.01,
             value=6,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -199,7 +199,7 @@ app.layout = html.Div([
             id='depthRange-slider',
             min=1,
             max=10,
-            step=0.1,
+            step=0.01,
             marks={i: f'{i}' for i in range(0, 11)},
             value=[3, 5],  # Initial selected range
             tooltip={"placement": "bottom", "always_visible": True}
@@ -213,7 +213,7 @@ app.layout = html.Div([
             id='focalLength-slider',
             min=1,
             max=10,
-            step=0.1,
+            step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -227,7 +227,7 @@ app.layout = html.Div([
             id='ImgPlaneWidth-slider',
             min=1,
             max=10,
-            step=0.1,
+            step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -236,12 +236,12 @@ app.layout = html.Div([
 
     # Zoom scale factor slider
     html.Div([
-        html.Label("Zoom scale factor (Factor < 1 for zoom in):"),
+        html.Label("Zoom scale factor (Factor > 1 for zoom in):"),
         dcc.Slider(
             id='zoom-slider',
             min=0,
             max=7,
-            step=0.1,
+            step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(0, 7, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -255,7 +255,7 @@ app.layout = html.Div([
             id='foreshortening-slider',
             min=-2,
             max=5,
-            step=0.1,
+            step=0.01,
             value=0,
             marks={i: f'{i}' for i in range(-2, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
@@ -430,13 +430,13 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
         'layout': go.Layout(
             title="Rendered image",
             xaxis={
-                'title': 'U', # Adjusted to represent horizontal axis
+                'title': 'U', 
                 'range': [-1.5, 1.5],  # Set U-axis range
                 'showgrid': True,  # Show gridlines
                 'zeroline': True,  # Show the zero line
             },
             yaxis={
-                'title': 'V',  # Adjusted to represent vertical axis
+                'title': 'V',  
                 'range': [-1, 1],  # Set V-axis range
                 'showgrid': True,  # Show gridlines
                 'zeroline': True,  # Show the zero line
