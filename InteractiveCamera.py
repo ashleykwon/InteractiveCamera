@@ -176,8 +176,7 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     new_xVals = []
     for i in range(len(u_coordinates)):
         # if zVals[i] >= Zminimum and zVals[i] <= Zmaximum:
-        #     x = 0
-            # Within b(z)
+        # Within b(z)
         if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
             # if u_coordinates_to_visualize[i]:
             x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
