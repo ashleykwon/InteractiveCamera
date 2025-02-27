@@ -134,12 +134,11 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     u_coordinates_to_visualize = np.zeros((len(XvalForEachZ), len(XvalForEachZ[next(iter(XvalForEachZ))])), dtype=bool) # Boolean mask to decide which u coorinate to render
     for j in range(len(XvalForEachZ)):
         zVal = list(XvalForEachZ.keys())[j]
+        currentXvals = sorted(XvalForEachZ[zVal])
         if zVal >= Zminimum and zVal <= Zmaximum:
-            currentXvals = sorted(XvalForEachZ[zVal])
             # Apply zoom and foreshortening to coordinates within the selected depth range
             if zVal >= selected_Zminimum and zVal <= selected_Zmaximum:
                 # Apply foreshortening and zoom and then apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
-                # u_coords_for_currentXs = [x/((newSlope/zoomScaleFactor)*zVal) if abs(x) <= abs(newSlope/zoomScaleFactor)*zVal else -1000 for x in currentXvals]
                 u_coords_for_currentXs = [x/((newSlope/zoomScaleFactor)*zVal) for x in currentXvals]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
@@ -149,12 +148,13 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
             # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
             else:
                 # Apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
-                # u_coords_for_currentXs = [x/(dZ_slope*zVal) if abs(x) <= abs(dZ_slope)*zVal else -1000 for x in currentXvals]
                 u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
                 chosen_coords_for_currentXs = [bool(abs(x) <= abs(dZ_slope)*zVal) for x in currentXvals]
                 u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
+        else:
+            u_coordinates +=  [x/(dZ_slope*zVal) for x in currentXvals]
     u_coordinates_to_visualize = u_coordinates_to_visualize.flatten()
     return u_coordinates, u_coordinates_to_visualize
 
@@ -163,8 +163,8 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     # Sort XZ pairs based on their z values and then extract sorted z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
     old_xVals = [pair[0] for pair in XZpairs]
-    # old_xVals.reverse()
     zVals = [pair[1] for pair in XZpairs]
+
     # Define selected minimum and maximum z range values
     selected_Zminimum, selected_Zmaximum = depthRangeValues
 
@@ -175,19 +175,23 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     u_coordinates.reverse()
     new_xVals = []
     for i in range(len(u_coordinates)):
-        if zVals[i] >= Zminimum and zVals[i] <= Zmaximum:
-            x = 0
+        # if zVals[i] >= Zminimum and zVals[i] <= Zmaximum:
+        #     x = 0
             # Within b(z)
-            if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
-                x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
-                new_xVals.append(x)
-            # Within the near and far plane but outside the selected depth range
-            else:
-                new_xVals.append(old_xVals[i])
+        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
+            # if u_coordinates_to_visualize[i]:
+            x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
+            new_xVals.append(x)
+            # else:
+            #     x = u_coordinates[i]*dZ_slope*zVals[i]
+            #     new_xVals.append(x)
+        # Within the near and far plane but outside the selected depth range
         else:
-            new_xVals.append(old_xVals[i])
+            x = u_coordinates[i]*dZ_slope*zVals[i]
+            new_xVals.append(x)
+        # else:
+        #     new_xVals.append(old_xVals[i])
     return np.asarray(new_xVals), np.asarray(zVals)
-
 
 
 
@@ -447,10 +451,11 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     color_list = [color_scale[int(val * (len(color_scale) - 1))] for val in norm_z]
     color_list.reverse()
 
-
     # Derive u and v coordinates after transformation
     u_coordinates, u_coordinates_to_visualize = apply_transformation_uv(nearPlaneZValue, farPlaneZvalue, depthRangeValues, slope, zoomScaleFactor, foreshorteningFactor, [[x, z] for x, z in zip(initial_X, initial_Z)])
-    u_coordinates_selected = [u for u in u_coordinates if u >= -1 and u <= 1]
+    u_coordinates_selected = [u_coordinates[i] for i in range(len(u_coordinates)) if u_coordinates_to_visualize[i]]
+        
+    # u for u in u_coordinates if u >= -1 and u <= 1 and u_coordinates_to_visualize[i]]
     v_coordinates = [0]*len(u_coordinates_selected) # set to 0 
     
     # Get colors of chosen coordinates (visible from the camera)
