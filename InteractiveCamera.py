@@ -12,71 +12,71 @@ app = dash.Dash(__name__)
 
 
 # Apply zoom in/out in 3D
-def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
-    newXZpairs = []
-    # Divide x values in XZpairs by scaleFactor if Z is in the modification range
-    for i in range(len(XZpairs)):
-        x, z = XZpairs[i]
-        if z >= Zminimum and z <= Zmaximum:
-            if x >= -1*dZ_slope*z and x <= dZ_slope*z:
-                newXZpairs.append([x/zoomScaleFactor, z])
-            else:
-                newXZpairs.append([x,z])
-        else:
-            newXZpairs.append([x,z])
-    return newXZpairs
+# def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
+#     newXZpairs = []
+#     # Divide x values in XZpairs by scaleFactor if Z is in the modification range
+#     for i in range(len(XZpairs)):
+#         x, z = XZpairs[i]
+#         if z >= Zminimum and z <= Zmaximum:
+#             if x >= -1*dZ_slope*z and x <= dZ_slope*z:
+#                 newXZpairs.append([x/zoomScaleFactor, z])
+#             else:
+#                 newXZpairs.append([x,z])
+#         else:
+#             newXZpairs.append([x,z])
+#     return newXZpairs
 
 
-# Increase or decrease foreshortening
-def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
-    newXZpairs = []
+# # Increase or decrease foreshortening
+# def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
+#     newXZpairs = []
 
-    # Check if the foreshortening factor was modified
-    if foreshorteningFactor != 0:
-        # Sort XZ pairs based on their z values
-        XZpairs = sorted(XZpairs, key= lambda x:x[1])
+#     # Check if the foreshortening factor was modified
+#     if foreshorteningFactor != 0:
+#         # Sort XZ pairs based on their z values
+#         XZpairs = sorted(XZpairs, key= lambda x:x[1])
 
-        # Make a dictionary with z-values as keys and all x-values with that z-value in a list
-        XvalForEachZ = dict()
-        for i in range(len(XZpairs)):
-            x, z = XZpairs[i]
-            if z not in XvalForEachZ:
-                XvalForEachZ[z] = []
-            XvalForEachZ[z].append(x)
-        XvalForEachZ = dict(sorted(XvalForEachZ.items()))
+#         # Make a dictionary with z-values as keys and all x-values with that z-value in a list
+#         XvalForEachZ = dict()
+#         for i in range(len(XZpairs)):
+#             x, z = XZpairs[i]
+#             if z not in XvalForEachZ:
+#                 XvalForEachZ[z] = []
+#             XvalForEachZ[z].append(x)
+#         XvalForEachZ = dict(sorted(XvalForEachZ.items()))
         
-        # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
-        initialZ = Zminimum
-        initialXvals = []
-        for zVal in XvalForEachZ:
-            if zVal >= Zminimum:
-                # initialZ = zVal
-                initialXvals = XvalForEachZ[zVal]
+#         # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
+#         initialZ = Zminimum
+#         initialXvals = []
+#         for zVal in XvalForEachZ:
+#             if zVal >= Zminimum:
+#                 # initialZ = zVal
+#                 initialXvals = XvalForEachZ[zVal]
 
-        # Iterate through the dictionary again and modify x values within the Z value range
-        for zVal in XvalForEachZ:
-            currentXvals = XvalForEachZ[zVal]
-            if zVal >= Zminimum and zVal <= Zmaximum:
-                for k in range(len(currentXvals)):
-                    if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
-                        closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
-                        # Transforms x values within the positive x boundary
-                        if currentXvals[k] <= 0:
-                            newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-                            newXZpairs.append([newX, zVal])
-                        # Transforms x values within the negative x boundary
-                        else:
-                            newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-                            newXZpairs.append([newX, zVal])
-                    else:
-                        newXZpairs.append([currentXvals[k], zVal])
-            else:
-                for k in range(len(currentXvals)):
-                    newXZpairs.append([currentXvals[k], zVal])
+#         # Iterate through the dictionary again and modify x values within the Z value range
+#         for zVal in XvalForEachZ:
+#             currentXvals = XvalForEachZ[zVal]
+#             if zVal >= Zminimum and zVal <= Zmaximum:
+#                 for k in range(len(currentXvals)):
+#                     if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
+#                         closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
+#                         # Transforms x values within the positive x boundary
+#                         if currentXvals[k] <= 0:
+#                             newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+#                             newXZpairs.append([newX, zVal])
+#                         # Transforms x values within the negative x boundary
+#                         else:
+#                             newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
+#                             newXZpairs.append([newX, zVal])
+#                     else:
+#                         newXZpairs.append([currentXvals[k], zVal])
+#             else:
+#                 for k in range(len(currentXvals)):
+#                     newXZpairs.append([currentXvals[k], zVal])
 
-    else:
-        newXZpairs = XZpairs
-    return newXZpairs
+#     else:
+#         newXZpairs = XZpairs
+#     return newXZpairs
 
 
 # Generate initial dot coordinates (arranged as a rectangle between two lines)
@@ -93,21 +93,21 @@ def generate_dots():
     return X_flat, Z_flat
 
 
-def apply_transformation_3d(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
-    Zminimum, Zmaximum = section_range
-    shape = Xcoords.shape
+# def apply_transformation_3d(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
+#     Zminimum, Zmaximum = section_range
+#     shape = Xcoords.shape
 
-    # Apply zoom or foreshortening to points that are in the selected range
-    newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Xcoords, Zcoords)])
-    newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
+#     # Apply zoom or foreshortening to points that are in the selected range
+#     newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Xcoords, Zcoords)])
+#     newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
 
-    # Reshape dot coordinate arrays for visualization
-    x_vals, z_vals = zip(*newXZpairs)
-    x_vals = np.array(x_vals)
-    z_vals = np.array(z_vals)
-    X_flat = x_vals.reshape(shape)
-    Z_flat = z_vals.reshape(shape)
-    return X_flat, Z_flat
+#     # Reshape dot coordinate arrays for visualization
+#     x_vals, z_vals = zip(*newXZpairs)
+#     x_vals = np.array(x_vals)
+#     z_vals = np.array(z_vals)
+#     X_flat = x_vals.reshape(shape)
+#     Z_flat = z_vals.reshape(shape)
+#     return X_flat, Z_flat
 
 
 def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
@@ -142,9 +142,24 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
                 u_coords_for_currentXs = [x/((newSlope/zoomScaleFactor)*zVal) for x in currentXvals]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
-                chosen_coords_for_currentXs = [bool(abs(x) <= abs(newSlope/zoomScaleFactor)*zVal) for x in currentXvals]
-                u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
-            
+                if newSlope > 0: # Positive slope
+                    chosen_coords_for_currentXs = []
+                    for k in range(len(currentXvals)):
+                        x = currentXvals[k]
+                        if x > 0:
+                            chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
+                        else:
+                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal))
+                    u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
+                elif newSlope < 0: # Negative slope
+                    chosen_coords_for_currentXs = []
+                    for k in range(len(currentXvals)):
+                        x = currentXvals[k]
+                        if x > 0:
+                            chosen_coords_for_currentXs.append(bool(-x >= (-newSlope/zoomScaleFactor)*zVal))
+                        else:
+                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal))
+                    u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
             # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
             else:
                 # Apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
@@ -162,7 +177,6 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
 def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values and then extract sorted z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
-    old_xVals = [pair[0] for pair in XZpairs]
     zVals = [pair[1] for pair in XZpairs]
 
     # Define selected minimum and maximum z range values
@@ -173,23 +187,21 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     # Iterate through u_coordinates and convert them to X coordinates (world coordinate)
     # old_xVals, zVals, u_coordinates, u_coordinates_to_visualize, and new_xVals are parallel lists with the same length
     u_coordinates.reverse()
+    u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
     new_xVals = []
     for i in range(len(u_coordinates)):
-        # if zVals[i] >= Zminimum and zVals[i] <= Zmaximum:
         # Within b(z)
-        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
-            # if u_coordinates_to_visualize[i]:
-            x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
-            new_xVals.append(x)
-            # else:
-            #     x = u_coordinates[i]*dZ_slope*zVals[i]
-            #     new_xVals.append(x)
-        # Within the near and far plane but outside the selected depth range
+        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates_to_visualize[i]:
+            if u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
+                x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
+                new_xVals.append(round(x, 2))
+            else:
+                x = u_coordinates[i]*dZ_slope*zVals[i]
+                new_xVals.append(round(x, 2))
+        # Outside of b(z)
         else:
             x = u_coordinates[i]*dZ_slope*zVals[i]
-            new_xVals.append(x)
-        # else:
-        #     new_xVals.append(old_xVals[i])
+            new_xVals.append(round(x, 2))
     return np.asarray(new_xVals), np.asarray(zVals)
 
 
@@ -286,7 +298,7 @@ app.layout = html.Div([
 
     # Foreshortening factor slider
     html.Div([
-        html.Label("Foreshortening factor (Lower slope to reduce foreshortening and make background objects appear closer):"),
+        html.Label("Foreshortening factor (Smaller value to reduce foreshortening and make background objects appear closer):"),
         dcc.Slider(
             id='foreshortening-slider',
             min=-2,
