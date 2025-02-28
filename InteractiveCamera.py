@@ -190,18 +190,21 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
     new_xVals = []
     for i in range(len(u_coordinates)):
-        # Within b(z)
-        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum and u_coordinates_to_visualize[i]:
-            if u_coordinates[i] >= -1 and u_coordinates[i] <= 1:
+        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum:
+            # Within b(z)
+            if u_coordinates_to_visualize[i]:
                 x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
                 new_xVals.append(round(x, 2))
             else:
                 x = u_coordinates[i]*dZ_slope*zVals[i]
                 new_xVals.append(round(x, 2))
-        # Outside of b(z)
+        # Outside of b(z) but within the near and far planes
         else:
+            # if zVals[i] >= Zminimum and zVals[i] <= Zmaximum: # World coordinates that should have been rendered but were outside of the selected bounds
+                # Coordinates were selected to be rendered
             x = u_coordinates[i]*dZ_slope*zVals[i]
             new_xVals.append(round(x, 2))
+
     return np.asarray(new_xVals), np.asarray(zVals)
 
 
