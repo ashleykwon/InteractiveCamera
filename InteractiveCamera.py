@@ -6,6 +6,7 @@ import plotly.express as px
 from dash.dependencies import Input, Output
 import numpy as np
 import random
+import sympy as sp
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -182,7 +183,20 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     return u_coordinates, u_coordinates_to_visualize
 
 
-def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
+def find_camera_params_after_foreshortening(old_half_img_width, old_focal_length, selected_Zminimum, nonminimum_Z, dZ_slope, zoomScaleFactor, foreshorteningFactor):
+    newSlope = dZ_slope + foreshorteningFactor
+    new_focal_length = sp.symbols('x')
+    nonminimum_Z = float(nonminimum_Z)
+
+    new_focal_length, new_half_img_width = sp.symbols('x y')
+    equation1 = new_half_img_width - (old_half_img_width*new_focal_length)/old_focal_length
+    equation2 = ((new_half_img_width/(new_focal_length*zoomScaleFactor))*nonminimum_Z - (new_half_img_width/(new_focal_length*zoomScaleFactor))*selected_Zminimum)/(nonminimum_Z - selected_Zminimum) - newSlope
+    solution = sp.solve((equation1, equation2), (new_focal_length, new_half_img_width))
+    
+    return new_focal_length, new_half_img_width
+
+
+def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, dZ_slope, half_img_width, focal_length, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values and then extract sorted z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
     zVals = [pair[1] for pair in XZpairs]
@@ -202,47 +216,51 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
 
     # Define a new slope with foreshorteningFactor
     newSlope = dZ_slope + foreshorteningFactor
+
+    new_focal_length, new_half_img_width = find_camera_params_after_foreshortening(half_img_width, focal_length, selected_Zminimum, list(XvalForEachZ.keys())[0], dZ_slope, zoomScaleFactor, foreshorteningFactor)
+    print(new_focal_length)
+    print(new_half_img_width)
     # Iterate through u_coordinates and convert them to X coordinates (world coordinate)
     # old_xVals, zVals, u_coordinates, u_coordinates_to_visualize, and new_xVals are parallel lists with the same length
     # u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
     new_xVals = []
-    uIdx = 0
-    for j in range(len(XvalForEachZ)):
-        zVal = list(XvalForEachZ.keys())[j]
-        currentXvals = sorted(XvalForEachZ[zVal])
-        newXs = []
-        for xIdx in range(len(currentXvals)):
-            x = currentXvals[xIdx]
-            if bool(zVal >= selected_Zminimum and zVal <= selected_Zmaximum):
-                if newSlope > 0: # Positive slope
-                    if x > 0:
-                        # Within b(z)
-                        if bool(x <= (newSlope/zoomScaleFactor)*zVal):
-                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-                            # print("Positive slope, positive x")
-                    else:
-                        if bool(x >= (-newSlope/zoomScaleFactor)*zVal):
-                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-                            # print("Positive slope, negative x")
-                else: # Negative or Zero slope # TODO: FIX THIS BY REFERRING TO THE WRITTEN NOTE!
-                    if x > 0:
-                        xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
-                        if bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum):
-                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-                            # print("Negative slope, positive x")
-                        # else:
-                        #     print("Positive x out of bound: " + str(x) + ", " + str(zVal))
-                    else:
-                        xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
-                        if bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum): # (-newSlope/zoomScaleFactor)*zVal is always a positive value
-                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-                        #     print("Negative slope, negative x")
-                        # else:
-                        #     print("Negative x out of bound: " + str(x) + ", " + str(zVal))
-            new_xVals.append(round(x, 2))
-            newXs.append(round(x, 2))
-            uIdx += 1
-        XvalForEachZ[zVal] = newXs
+    # uIdx = 0
+    # for j in range(len(XvalForEachZ)):
+    #     zVal = list(XvalForEachZ.keys())[j]
+    #     currentXvals = sorted(XvalForEachZ[zVal])
+    #     newXs = []
+    #     for xIdx in range(len(currentXvals)):
+    #         x = currentXvals[xIdx]
+    #         if bool(zVal >= selected_Zminimum and zVal <= selected_Zmaximum):
+    #             if newSlope > 0: # Positive slope
+    #                 if x > 0:
+    #                     # Within b(z)
+    #                     if bool(x <= (newSlope/zoomScaleFactor)*zVal):
+    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+    #                         # print("Positive slope, positive x")
+    #                 else:
+    #                     if bool(x >= (-newSlope/zoomScaleFactor)*zVal):
+    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+    #                         # print("Positive slope, negative x")
+    #             else: # Negative or Zero slope # TODO: FIX THIS BY REFERRING TO THE WRITTEN NOTE!
+    #                 if x > 0:
+    #                     xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
+    #                     if bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum):
+    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+    #                         # print("Negative slope, positive x")
+    #                     # else:
+    #                     #     print("Positive x out of bound: " + str(x) + ", " + str(zVal))
+    #                 else:
+    #                     xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
+    #                     if bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum): # (-newSlope/zoomScaleFactor)*zVal is always a positive value
+    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+    #                     #     print("Negative slope, negative x")
+    #                     # else:
+    #                     #     print("Negative x out of bound: " + str(x) + ", " + str(zVal))
+    #         new_xVals.append(round(x, 2))
+    #         newXs.append(round(x, 2))
+    #         uIdx += 1
+    #     XvalForEachZ[zVal] = newXs
     # print(XvalForEachZ)
     # print('\n')
     return np.asarray(new_xVals), np.asarray(zVals)
@@ -396,7 +414,7 @@ def update_camera_model(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, 
     # Apply transformation to world coordinates
     # X, Z = apply_transformation_3d(initial_X, initial_Z, zoomScaleFactor, foreshorteningFactor, slope, depthRangeValues)
     u_coordinates, u_coordinates_to_visualize = apply_transformation_uv(nearPlaneZValue, farPlaneZvalue, depthRangeValues, slope, zoomScaleFactor, foreshorteningFactor, [[x, z] for x, z in zip(initial_X, initial_Z)])
-    X, Z = uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, slope, zoomScaleFactor, foreshorteningFactor, [[x, z] for x, z in zip(initial_X, initial_Z)])
+    X, Z = uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, slope, focalLength, ImgPlaneWidth, zoomScaleFactor, foreshorteningFactor, [[x, z] for x, z in zip(initial_X, initial_Z)])
     
     # Calculate the x-values for both lines 
     x1_vals = slope * z_vals  
