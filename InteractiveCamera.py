@@ -263,7 +263,8 @@ app.layout = html.Div([
             step=0.01,
             value=2,
             marks={i: f'{i}' for i in range(1, 11)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -278,7 +279,8 @@ app.layout = html.Div([
             step=0.01,
             value=5.5,
             marks={i: f'{i}' for i in range(1, 11)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -293,7 +295,8 @@ app.layout = html.Div([
             step=0.01,
             marks={i: f'{i}' for i in range(0, 11)},
             value=[3.5, 5],  # Initial selected range
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -307,7 +310,8 @@ app.layout = html.Div([
             step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(1, 11)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -321,7 +325,8 @@ app.layout = html.Div([
             step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(1, 11)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -335,7 +340,8 @@ app.layout = html.Div([
             step=0.01,
             value=1,
             marks={i: f'{i}' for i in range(0, 7, 1)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
@@ -349,7 +355,8 @@ app.layout = html.Div([
             step=0.01,
             value=-1.76, 
             marks={i: f'{i}' for i in range(-6, 6, 1)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            tooltip={"placement": "bottom", "always_visible": True},
+            updatemode='drag'
         ),
     ], style={'padding': '10px'}),
 
