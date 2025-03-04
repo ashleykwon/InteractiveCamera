@@ -128,6 +128,8 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     
     # Define a new slope with foreshorteningFactor
     newSlope = dZ_slope + foreshorteningFactor
+    if newSlope == 0:
+        newSlope = 0.01
 
     # Iterate through the dictionary and derive u coordinates
     u_coordinates = []
@@ -149,17 +151,22 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
                         if x > 0:
                             chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
                         else:
-                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal))
+                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal)) # Need to flip the direction of the slope for negative x values
                     u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
                 elif newSlope < 0: # Negative slope
                     chosen_coords_for_currentXs = []
                     for k in range(len(currentXvals)):
                         x = currentXvals[k]
                         if x > 0:
-                            chosen_coords_for_currentXs.append(bool(-x >= (-newSlope/zoomScaleFactor)*zVal))
+                            xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
+                            # chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal)) # TODO: Wut?? Why would this work when (newSlope/zoomScaleFactor)*zVal is always negative?
+                            chosen_coords_for_currentXs.append(bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
                         else:
-                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal))
+                            xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
+                            # chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal)) # Need to flip the direction of the slope for negative x values
+                            chosen_coords_for_currentXs.append(bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
                     u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
+                # TODO What to do at 0 slope??
             # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
             else:
                 # Apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
@@ -170,7 +177,8 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
                 u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
         else:
             u_coordinates +=  [x/(dZ_slope*zVal) for x in currentXvals]
-    u_coordinates_to_visualize = u_coordinates_to_visualize.flatten()
+    # print(u_coordinates_to_visualize)
+    u_coordinates_to_visualize = u_coordinates_to_visualize.flatten() # This mask is correct
     return u_coordinates, u_coordinates_to_visualize
 
 
@@ -179,6 +187,16 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
     zVals = [pair[1] for pair in XZpairs]
 
+    # print("UV to 3D called")
+    # Make a dictionary with z-values as keys and all x-values with that z-value in a list
+    XvalForEachZ = dict()
+    for i in range(len(XZpairs)):
+        x, z = XZpairs[i]
+        if z not in XvalForEachZ:
+            XvalForEachZ[z] = []
+        XvalForEachZ[z].append(x)
+    XvalForEachZ = dict(sorted(XvalForEachZ.items(), reverse=True))
+
     # Define selected minimum and maximum z range values
     selected_Zminimum, selected_Zmaximum = depthRangeValues
 
@@ -186,25 +204,47 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     newSlope = dZ_slope + foreshorteningFactor
     # Iterate through u_coordinates and convert them to X coordinates (world coordinate)
     # old_xVals, zVals, u_coordinates, u_coordinates_to_visualize, and new_xVals are parallel lists with the same length
-    u_coordinates.reverse()
-    u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
+    # u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
     new_xVals = []
-    for i in range(len(u_coordinates)):
-        if zVals[i] >= selected_Zminimum and zVals[i] <= selected_Zmaximum:
-            # Within b(z)
-            if u_coordinates_to_visualize[i]:
-                x = u_coordinates[i]*(newSlope/zoomScaleFactor)*zVals[i]
-                new_xVals.append(round(x, 2))
-            else:
-                x = u_coordinates[i]*dZ_slope*zVals[i]
-                new_xVals.append(round(x, 2))
-        # Outside of b(z) but within the near and far planes
-        else:
-            # if zVals[i] >= Zminimum and zVals[i] <= Zmaximum: # World coordinates that should have been rendered but were outside of the selected bounds
-                # Coordinates were selected to be rendered
-            x = u_coordinates[i]*dZ_slope*zVals[i]
+    uIdx = 0
+    for j in range(len(XvalForEachZ)):
+        zVal = list(XvalForEachZ.keys())[j]
+        currentXvals = sorted(XvalForEachZ[zVal])
+        newXs = []
+        for xIdx in range(len(currentXvals)):
+            x = currentXvals[xIdx]
+            if bool(zVal >= selected_Zminimum and zVal <= selected_Zmaximum):
+                if newSlope > 0: # Positive slope
+                    if x > 0:
+                        # Within b(z)
+                        if bool(x <= (newSlope/zoomScaleFactor)*zVal):
+                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+                            # print("Positive slope, positive x")
+                    else:
+                        if bool(x >= (-newSlope/zoomScaleFactor)*zVal):
+                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+                            # print("Positive slope, negative x")
+                else: # Negative or Zero slope # TODO: FIX THIS BY REFERRING TO THE WRITTEN NOTE!
+                    if x > 0:
+                        xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
+                        if bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum):
+                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+                            # print("Negative slope, positive x")
+                        # else:
+                        #     print("Positive x out of bound: " + str(x) + ", " + str(zVal))
+                    else:
+                        xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
+                        if bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum): # (-newSlope/zoomScaleFactor)*zVal is always a positive value
+                            x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
+                        #     print("Negative slope, negative x")
+                        # else:
+                        #     print("Negative x out of bound: " + str(x) + ", " + str(zVal))
             new_xVals.append(round(x, 2))
-
+            newXs.append(round(x, 2))
+            uIdx += 1
+        XvalForEachZ[zVal] = newXs
+    # print(XvalForEachZ)
+    # print('\n')
     return np.asarray(new_xVals), np.asarray(zVals)
 
 
@@ -236,7 +276,7 @@ app.layout = html.Div([
             min=1,
             max=10,
             step=0.01,
-            value=6,
+            value=5.5,
             marks={i: f'{i}' for i in range(1, 11)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
@@ -252,7 +292,7 @@ app.layout = html.Div([
             max=10,
             step=0.01,
             marks={i: f'{i}' for i in range(0, 11)},
-            value=[3, 5],  # Initial selected range
+            value=[3.5, 5],  # Initial selected range
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
@@ -307,8 +347,8 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.01,
-            value=0,
-            marks={i: f'{i}' for i in range(-2, 6, 1)},
+            value=-1.76, 
+            marks={i: f'{i}' for i in range(-6, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True}
         ),
     ], style={'padding': '10px'}),
@@ -485,7 +525,7 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
             title="Rendered image",
             xaxis={
                 'title': 'U', 
-                'range': [-1.5, 1.5],  # Set U-axis range
+                'range': [-1.05, 1.05],  # Set U-axis range
                 'showgrid': True,  # Show gridlines
                 'zeroline': True,  # Show the zero line
             },
