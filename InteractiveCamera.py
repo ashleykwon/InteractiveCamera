@@ -192,6 +192,7 @@ def find_camera_params_after_foreshortening(old_half_img_width, old_focal_length
     new_focal_length, new_half_img_width = sp.symbols('x y')
     equation1 = new_half_img_width - abs(newSlope)*new_focal_length
     equation2 = ((new_half_img_width/(new_focal_length*zoomScaleFactor))*nonminimum_Z - (new_half_img_width/(new_focal_length*zoomScaleFactor))*selected_Zminimum)/(nonminimum_Z - selected_Zminimum) - abs(newSlope)
+    # equation3 = new_focal_length*math.atan(old_half_img_width/old_focal_length) - new_half_img_width
     # print(math.atan(old_half_img_width/old_focal_length))
     # inequality1 = new_focal_length > old_focal_length
     # inequality2 = new_half_img_width > old_half_img_width
