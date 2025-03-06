@@ -184,28 +184,28 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     return u_coordinates, u_coordinates_to_visualize
 
 
-def find_camera_params_after_foreshortening(old_half_img_width, old_focal_length, selected_Zminimum, nonminimum_Z, dZ_slope, zoomScaleFactor, foreshorteningFactor):
-    newSlope = dZ_slope + foreshorteningFactor
-    new_focal_length = sp.symbols('x')
-    nonminimum_Z = float(nonminimum_Z)
+# def find_camera_params_after_foreshortening(old_half_img_width, old_focal_length, selected_Zminimum, nonminimum_Z, dZ_slope, zoomScaleFactor, foreshorteningFactor):
+#     newSlope = dZ_slope + foreshorteningFactor
+#     new_focal_length = sp.symbols('x')
+#     nonminimum_Z = float(nonminimum_Z)
 
-    new_focal_length, new_half_img_width = sp.symbols('x y')
-    equation1 = new_half_img_width - abs(newSlope)*new_focal_length
-    equation2 = ((new_half_img_width/(new_focal_length*zoomScaleFactor))*nonminimum_Z - (new_half_img_width/(new_focal_length*zoomScaleFactor))*selected_Zminimum)/(nonminimum_Z - selected_Zminimum) - abs(newSlope)
-    # equation3 = new_focal_length*math.atan(old_half_img_width/old_focal_length) - new_half_img_width
-    # print(math.atan(old_half_img_width/old_focal_length))
-    # inequality1 = new_focal_length > old_focal_length
-    # inequality2 = new_half_img_width > old_half_img_width
-    # equation3 = new_half_img_width - (new_focal_length*old_half_img_width)/old_focal_length
-    solution = sp.solve((equation1, equation2), (new_focal_length, new_half_img_width)) #TODO Is still underconstrained
-    print(solution)
-    new_focal_length = solution[list(solution.keys())[0]]
-    new_half_img_width = solution[list(solution.keys())[1]]
+#     new_focal_length, new_half_img_width = sp.symbols('x y')
+#     equation1 = new_half_img_width - abs(newSlope)*new_focal_length
+#     equation2 = ((new_half_img_width/(new_focal_length*zoomScaleFactor))*nonminimum_Z - (new_half_img_width/(new_focal_length*zoomScaleFactor))*selected_Zminimum)/(nonminimum_Z - selected_Zminimum) - abs(newSlope)
+#     # equation3 = new_focal_length*math.atan(old_half_img_width/old_focal_length) - new_half_img_width
+#     # print(math.atan(old_half_img_width/old_focal_length))
+#     # inequality1 = new_focal_length > old_focal_length
+#     # inequality2 = new_half_img_width > old_half_img_width
+#     # equation3 = new_half_img_width - (new_focal_length*old_half_img_width)/old_focal_length
+#     solution = sp.solve((equation1, equation2), (new_focal_length, new_half_img_width)) #TODO Is still underconstrained
+#     print(solution)
+#     new_focal_length = solution[list(solution.keys())[0]]
+#     new_half_img_width = solution[list(solution.keys())[1]]
    
-    return new_focal_length, new_half_img_width
+#     return new_focal_length, new_half_img_width
 
 
-def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, dZ_slope, half_img_width, focal_length, zoomScaleFactor, foreshorteningFactor, XZpairs):
+def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, bZ_slope, half_img_width, focal_length, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values and then extract sorted z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
     zVals = [pair[1] for pair in XZpairs]
@@ -224,54 +224,51 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     selected_Zminimum, selected_Zmaximum = depthRangeValues
 
     # Define a new slope with foreshorteningFactor
-    newSlope = dZ_slope + foreshorteningFactor
+    newSlope = bZ_slope + foreshorteningFactor
 
-    new_focal_length, new_half_img_width = find_camera_params_after_foreshortening(half_img_width, focal_length, selected_Zminimum, list(XvalForEachZ.keys())[0], dZ_slope, zoomScaleFactor, foreshorteningFactor)
-    print(new_focal_length)
-    print(new_half_img_width)
-    # Iterate through u_coordinates and convert them to X coordinates (world coordinate)
-    # old_xVals, zVals, u_coordinates, u_coordinates_to_visualize, and new_xVals are parallel lists with the same length
-    # u_coordinates_to_visualize = u_coordinates_to_visualize[::-1]
     new_xVals = []
-    # uIdx = 0
-    # for j in range(len(XvalForEachZ)):
-    #     zVal = list(XvalForEachZ.keys())[j]
-    #     currentXvals = sorted(XvalForEachZ[zVal])
-    #     newXs = []
-    #     for xIdx in range(len(currentXvals)):
-    #         x = currentXvals[xIdx]
-    #         if bool(zVal >= selected_Zminimum and zVal <= selected_Zmaximum):
-    #             if newSlope > 0: # Positive slope
-    #                 if x > 0:
-    #                     # Within b(z)
-    #                     if bool(x <= (newSlope/zoomScaleFactor)*zVal):
-    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-    #                         # print("Positive slope, positive x")
-    #                 else:
-    #                     if bool(x >= (-newSlope/zoomScaleFactor)*zVal):
-    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-    #                         # print("Positive slope, negative x")
-    #             else: # Negative or Zero slope # TODO: FIX THIS BY REFERRING TO THE WRITTEN NOTE!
-    #                 if x > 0:
-    #                     xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
-    #                     if bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum):
-    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-    #                         # print("Negative slope, positive x")
-    #                     # else:
-    #                     #     print("Positive x out of bound: " + str(x) + ", " + str(zVal))
-    #                 else:
-    #                     xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
-    #                     if bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum): # (-newSlope/zoomScaleFactor)*zVal is always a positive value
-    #                         x = u_coordinates[uIdx]*(newSlope/zoomScaleFactor)*zVal
-    #                     #     print("Negative slope, negative x")
-    #                     # else:
-    #                     #     print("Negative x out of bound: " + str(x) + ", " + str(zVal))
-    #         new_xVals.append(round(x, 2))
-    #         newXs.append(round(x, 2))
-    #         uIdx += 1
-    #     XvalForEachZ[zVal] = newXs
-    # print(XvalForEachZ)
-    # print('\n')
+
+    # Foreshortening  
+    # Initial lower and upperbound b(z) values
+    lowerbound_bZ = -1
+    upperbound_bZ = 1
+    bound_distance = 2
+    stepsize = 1
+    # Iterate through z values
+    for z in list(XvalForEachZ.keys()):
+    # Get the distance bound_distance between the x coordinates of the lower and upper bounds of the new b(z)
+        # Iterate through x values with the same z value
+        Xs_at_Z = XvalForEachZ[z]
+        if z >= selected_Zminimum and z <= selected_Zmaximum:
+            # print(z)
+            xVal_at_selected_Zminimum = bZ_slope*selected_Zminimum
+            for i in range(len(Xs_at_Z)):
+                x = Xs_at_Z[i]
+                if newSlope >= 0: # Positive or zero slope
+                    lowerbound_b = -xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+                    upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+                    upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
+                    lowerbound_bZ = -upperbound_bZ
+                else: # Negative slope
+                    lowerbound_b = -xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+                    upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+                    upperbound_bZ = -z*(newSlope/zoomScaleFactor) + upperbound_b
+                    lowerbound_bZ = -upperbound_bZ
+                bound_distance = abs(upperbound_bZ) + abs(lowerbound_bZ)
+                stepsize = bound_distance/(len(Xs_at_Z)-1)
+                
+                if x >= lowerbound_bZ and x <= upperbound_bZ:
+                    print("lowerbound")
+                    print(lowerbound_bZ)
+                    print("upperbound")
+                    print(upperbound_bZ)
+                    remapped_x = lowerbound_bZ + stepsize*(i+1)
+                    new_xVals.append(remapped_x)
+                else:
+                    new_xVals.append(x)
+        else:
+            new_xVals += Xs_at_Z
+    new_xVals.reverse()
     return np.asarray(new_xVals), np.asarray(zVals)
 
 
@@ -380,7 +377,7 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.01,
-            value=-1.76, 
+            value=5, 
             marks={i: f'{i}' for i in range(-6, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True},
             updatemode='drag'
