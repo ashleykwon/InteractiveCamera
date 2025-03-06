@@ -244,25 +244,17 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
             xVal_at_selected_Zminimum = bZ_slope*selected_Zminimum
             for i in range(len(Xs_at_Z)):
                 x = Xs_at_Z[i]
-                if newSlope >= 0: # Positive or zero slope
-                    lowerbound_b = -xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
-                    upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
-                    upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
-                    lowerbound_bZ = -upperbound_bZ
-                else: # Negative slope
-                    lowerbound_b = -xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
-                    upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
-                    upperbound_bZ = -z*(newSlope/zoomScaleFactor) + upperbound_b
-                    lowerbound_bZ = -upperbound_bZ
+                upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+                upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
+                print(upperbound_bZ)
+                lowerbound_bZ = -upperbound_bZ
+                
                 bound_distance = abs(upperbound_bZ) + abs(lowerbound_bZ)
                 stepsize = bound_distance/(len(Xs_at_Z)-1)
                 
                 if x >= lowerbound_bZ and x <= upperbound_bZ:
-                    print("lowerbound")
-                    print(lowerbound_bZ)
-                    print("upperbound")
-                    print(upperbound_bZ)
-                    remapped_x = lowerbound_bZ + stepsize*(i+1)
+                    # print(lowerbound_bZ)
+                    remapped_x = lowerbound_bZ + stepsize*(i+1) #TODO: Change this
                     new_xVals.append(remapped_x)
                 else:
                     new_xVals.append(x)
@@ -377,7 +369,7 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.01,
-            value=5, 
+            value=-2, 
             marks={i: f'{i}' for i in range(-6, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True},
             updatemode='drag'
