@@ -95,23 +95,6 @@ def generate_dots():
     return X_flat, Z_flat
 
 
-# def apply_transformation_3d(Xcoords, Zcoords, zoomScaleFactor, foreshorteningSlope, dZ_slope, section_range):
-#     Zminimum, Zmaximum = section_range
-#     shape = Xcoords.shape
-
-#     # Apply zoom or foreshortening to points that are in the selected range
-#     newXZpairs = zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, [[X, Z] for X, Z in zip(Xcoords, Zcoords)])
-#     newXZpairs = foreshortening(Zminimum, Zmaximum, foreshorteningSlope, dZ_slope, newXZpairs)
-
-#     # Reshape dot coordinate arrays for visualization
-#     x_vals, z_vals = zip(*newXZpairs)
-#     x_vals = np.array(x_vals)
-#     z_vals = np.array(z_vals)
-#     X_flat = x_vals.reshape(shape)
-#     Z_flat = z_vals.reshape(shape)
-#     return X_flat, Z_flat
-
-
 def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
@@ -237,30 +220,48 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     # Iterate through z values
     for z in list(XvalForEachZ.keys()):
     # Get the distance bound_distance between the x coordinates of the lower and upper bounds of the new b(z)
-        # Iterate through x values with the same z value
-        Xs_at_Z = XvalForEachZ[z]
+        # Get lower and upper bounds of b(z) at the current z
+        xVal_at_selected_Zminimum = abs(bZ_slope*selected_Zminimum) # For positive x. 
+        upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+        upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
+        lowerbound_bZ = -upperbound_bZ
+        new_bound_distance = abs(upperbound_bZ)*2
+        # Check if the current z value is in the selected z (depth) range
+        Xs_at_Z = sorted(XvalForEachZ[z])
         if z >= selected_Zminimum and z <= selected_Zmaximum:
             # print(z)
-            xVal_at_selected_Zminimum = bZ_slope*selected_Zminimum
+            # Iterate through x values with the same z value
+            stepsize_from_prevX = 0
+            first_inbound_X_found = False
+            last_inbound_X_found = False
             for i in range(len(Xs_at_Z)):
                 x = Xs_at_Z[i]
-                upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
-                upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
-                print(upperbound_bZ)
-                lowerbound_bZ = -upperbound_bZ
-                
-                bound_distance = abs(upperbound_bZ) + abs(lowerbound_bZ)
-                stepsize = bound_distance/(len(Xs_at_Z)-1)
-                
-                if x >= lowerbound_bZ and x <= upperbound_bZ:
-                    # print(lowerbound_bZ)
-                    remapped_x = lowerbound_bZ + stepsize*(i+1) #TODO: Change this
+                # X values within the new b(z) bounds
+                if x >= lowerbound_bZ and x <= upperbound_bZ: 
+                    if not(first_inbound_X_found) or (i == 0):
+                        stepsize_from_prevX += abs(x - lowerbound_bZ)
+                        first_inbound_X_found = True
+                        print("first inbound x")
+                        print(abs(x - lowerbound_bZ))
+                    elif (i != len(Xs_at_Z)-1 and Xs_at_Z[i+1] > upperbound_bZ) or (i == len(Xs_at_Z)-1):
+                        stepsize_from_prevX += abs(upperbound_bZ-x)
+                        last_inbound_X_found = True
+                        print("last inbound x")
+                        print(abs(upperbound_bZ-x))
+                    elif not(last_inbound_X_found):
+                        stepsize_from_prevX += abs(x - Xs_at_Z[i-1])
+                        print("intermediate x")
+                        print(abs(x - Xs_at_Z[i-1]))
+                    remapped_x = lowerbound_bZ + stepsize_from_prevX/new_bound_distance #TODO: Change this
                     new_xVals.append(remapped_x)
-                else:
+                    
+                # X values  outside of the new b(z) bounds
+                else:  
                     new_xVals.append(x)
         else:
             new_xVals += Xs_at_Z
     new_xVals.reverse()
+    print("\n")
     return np.asarray(new_xVals), np.asarray(zVals)
 
 
@@ -565,6 +566,6 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     return figure
 
 
-#Run# Keep track of modified coordinate the Dash app
+#Runthe Dash app
 if __name__ == '__main__':
     app.run_server(debug=True)
