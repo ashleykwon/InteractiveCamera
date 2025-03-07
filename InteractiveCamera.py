@@ -144,7 +144,7 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
                         x = currentXvals[k]
                         if x > 0:
                             xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
-                            # chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal)) # TODO: Wut?? Why would this work when (newSlope/zoomScaleFactor)*zVal is always negative?
+                            # chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
                             chosen_coords_for_currentXs.append(bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
                         else:
                             xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
@@ -226,38 +226,44 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
         upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
         lowerbound_bZ = -upperbound_bZ
         new_bound_distance = abs(upperbound_bZ)*2
+        num_inbound_Xs = 0
         # Check if the current z value is in the selected z (depth) range
         Xs_at_Z = sorted(XvalForEachZ[z])
         if z >= selected_Zminimum and z <= selected_Zmaximum:
             # print(z)
             # Iterate through x values with the same z value
-            stepsize_from_prevX = 0
             first_inbound_X_found = False
+            first_inbound_X = -1000
             last_inbound_X_found = False
+            last_inbound_X = -1000
             for i in range(len(Xs_at_Z)):
                 x = Xs_at_Z[i]
                 # X values within the new b(z) bounds
                 if x >= lowerbound_bZ and x <= upperbound_bZ: 
+                    num_inbound_Xs += 1
                     if not(first_inbound_X_found) or (i == 0):
-                        stepsize_from_prevX += abs(x - lowerbound_bZ)
+                        stepsize_from_prevX = abs(x - lowerbound_bZ)
                         first_inbound_X_found = True
-                        print("first inbound x")
-                        print(abs(x - lowerbound_bZ))
+                        first_inbound_X = lowerbound_bZ + stepsize_from_prevX/(new_bound_distance/2)
                     elif (i != len(Xs_at_Z)-1 and Xs_at_Z[i+1] > upperbound_bZ) or (i == len(Xs_at_Z)-1):
-                        stepsize_from_prevX += abs(upperbound_bZ-x)
+                        stepsize_from_prevX = abs(upperbound_bZ-x)
                         last_inbound_X_found = True
-                        print("last inbound x")
-                        print(abs(upperbound_bZ-x))
-                    elif not(last_inbound_X_found):
-                        stepsize_from_prevX += abs(x - Xs_at_Z[i-1])
-                        print("intermediate x")
-                        print(abs(x - Xs_at_Z[i-1]))
-                    remapped_x = lowerbound_bZ + stepsize_from_prevX/new_bound_distance #TODO: Change this
-                    new_xVals.append(remapped_x)
-                    
-                # X values  outside of the new b(z) bounds
+                        last_inbound_X = upperbound_bZ - stepsize_from_prevX/(new_bound_distance/2)
+            # Find the bound distance between the upper bound x and the lower bound x
+            # Keep track of the x values
+            # Iterate through x values that are not boundary values and remap them
+            xbounds = last_inbound_X - first_inbound_X
+            stepsize = xbounds/(num_inbound_Xs - 1)
+            inboundXs_encountered = 0
+            # print(xbounds)
+            for i in range(len(Xs_at_Z)):
+                x = Xs_at_Z[i]
+                if x >= lowerbound_bZ and x <= upperbound_bZ:
+                    new_xVals.append(first_inbound_X + inboundXs_encountered*stepsize)
+                    inboundXs_encountered += 1
                 else:  
                     new_xVals.append(x)
+        # X values outside of the selected z ranges
         else:
             new_xVals += Xs_at_Z
     new_xVals.reverse()
@@ -370,7 +376,7 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.01,
-            value=-2, 
+            value=0, 
             marks={i: f'{i}' for i in range(-6, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True},
             updatemode='drag'
