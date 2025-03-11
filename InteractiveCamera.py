@@ -13,74 +13,6 @@ import math
 app = dash.Dash(__name__)
 
 
-# Apply zoom in/out in 3D
-# def zoom(Zminimum, Zmaximum, dZ_slope, zoomScaleFactor, XZpairs):
-#     newXZpairs = []
-#     # Divide x values in XZpairs by scaleFactor if Z is in the modification range
-#     for i in range(len(XZpairs)):
-#         x, z = XZpairs[i]
-#         if z >= Zminimum and z <= Zmaximum:
-#             if x >= -1*dZ_slope*z and x <= dZ_slope*z:
-#                 newXZpairs.append([x/zoomScaleFactor, z])
-#             else:
-#                 newXZpairs.append([x,z])
-#         else:
-#             newXZpairs.append([x,z])
-#     return newXZpairs
-
-
-# # Increase or decrease foreshortening
-# def foreshortening(Zminimum, Zmaximum, foreshorteningFactor, dZ_slope, XZpairs):
-#     newXZpairs = []
-
-#     # Check if the foreshortening factor was modified
-#     if foreshorteningFactor != 0:
-#         # Sort XZ pairs based on their z values
-#         XZpairs = sorted(XZpairs, key= lambda x:x[1])
-
-#         # Make a dictionary with z-values as keys and all x-values with that z-value in a list
-#         XvalForEachZ = dict()
-#         for i in range(len(XZpairs)):
-#             x, z = XZpairs[i]
-#             if z not in XvalForEachZ:
-#                 XvalForEachZ[z] = []
-#             XvalForEachZ[z].append(x)
-#         XvalForEachZ = dict(sorted(XvalForEachZ.items()))
-        
-#         # Iterate through each z value and get the smallest z value and its x values that are within the Z value range
-#         initialZ = Zminimum
-#         initialXvals = []
-#         for zVal in XvalForEachZ:
-#             if zVal >= Zminimum:
-#                 # initialZ = zVal
-#                 initialXvals = XvalForEachZ[zVal]
-
-#         # Iterate through the dictionary again and modify x values within the Z value range
-#         for zVal in XvalForEachZ:
-#             currentXvals = XvalForEachZ[zVal]
-#             if zVal >= Zminimum and zVal <= Zmaximum:
-#                 for k in range(len(currentXvals)):
-#                     if currentXvals[k] >= -1*dZ_slope*zVal and currentXvals[k] <= dZ_slope*zVal:
-#                         closestInitialXval = min(initialXvals, key=lambda x: abs(x - currentXvals[k]))
-#                         # Transforms x values within the positive x boundary
-#                         if currentXvals[k] <= 0:
-#                             newX = -1*(dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-#                             newXZpairs.append([newX, zVal])
-#                         # Transforms x values within the negative x boundary
-#                         else:
-#                             newX = (dZ_slope + foreshorteningFactor)*(zVal - initialZ) + closestInitialXval
-#                             newXZpairs.append([newX, zVal])
-#                     else:
-#                         newXZpairs.append([currentXvals[k], zVal])
-#             else:
-#                 for k in range(len(currentXvals)):
-#                     newXZpairs.append([currentXvals[k], zVal])
-
-#     else:
-#         newXZpairs = XZpairs
-#     return newXZpairs
-
-
 # Generate initial dot coordinates (arranged as a rectangle between two lines)
 def generate_dots():
     # Create a 2D grid of dots
@@ -95,7 +27,7 @@ def generate_dots():
     return X_flat, Z_flat
 
 
-def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
+def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, bZ_slope, zoomScaleFactor, foreshorteningFactor, XZpairs):
     # Sort XZ pairs based on their z values
     XZpairs = sorted(XZpairs, key= lambda x:x[1])
 
@@ -112,7 +44,7 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     XvalForEachZ = dict(sorted(XvalForEachZ.items(), reverse=True))
     
     # Define a new slope with foreshorteningFactor
-    newSlope = dZ_slope + foreshorteningFactor
+    newSlope = bZ_slope + foreshorteningFactor
     if newSlope == 0:
         newSlope = 0.01
 
@@ -122,6 +54,10 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
     for j in range(len(XvalForEachZ)):
         zVal = list(XvalForEachZ.keys())[j]
         currentXvals = sorted(XvalForEachZ[zVal])
+        xVal_at_selected_Zminimum = abs(bZ_slope*selected_Zminimum) # For positive x. 
+        upperbound_b = xVal_at_selected_Zminimum - (newSlope/zoomScaleFactor)*selected_Zminimum
+        upperbound_bZ = zVal*(newSlope/zoomScaleFactor) + upperbound_b
+        lowerbound_bZ = -upperbound_bZ
         if zVal >= Zminimum and zVal <= Zmaximum:
             # Apply zoom and foreshortening to coordinates within the selected depth range
             if zVal >= selected_Zminimum and zVal <= selected_Zmaximum:
@@ -134,58 +70,41 @@ def apply_transformation_uv(Zminimum, Zmaximum, depthRangeValues, dZ_slope, zoom
                     for k in range(len(currentXvals)):
                         x = currentXvals[k]
                         if x > 0:
-                            chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
+                            # chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
+                            chosen_coords_for_currentXs.append(bool(x <= upperbound_bZ)) 
                         else:
-                            chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal)) # Need to flip the direction of the slope for negative x values
+                            # chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal)) # Need to flip the direction of the slope for negative x values
+                            chosen_coords_for_currentXs.append(bool(x >= lowerbound_bZ)) 
                     u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
                 elif newSlope < 0: # Negative slope
                     chosen_coords_for_currentXs = []
                     for k in range(len(currentXvals)):
                         x = currentXvals[k]
                         if x > 0:
-                            xVal_at_selected_Zminimum = dZ_slope*selected_Zminimum
+                            # xVal_at_selected_Zminimum = bZ_slope*selected_Zminimum
                             # chosen_coords_for_currentXs.append(bool(x <= (newSlope/zoomScaleFactor)*zVal))
-                            chosen_coords_for_currentXs.append(bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
+                            # chosen_coords_for_currentXs.append(bool(x <= (zVal-selected_Zminimum)*(newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
+                            chosen_coords_for_currentXs.append(bool(x <= upperbound_bZ)) 
                         else:
-                            xVal_at_selected_Zminimum = -dZ_slope*selected_Zminimum
+                            # xVal_at_selected_Zminimum = -bZ_slope*selected_Zminimum
                             # chosen_coords_for_currentXs.append(bool(x >= (-newSlope/zoomScaleFactor)*zVal)) # Need to flip the direction of the slope for negative x values
-                            chosen_coords_for_currentXs.append(bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
+                            # chosen_coords_for_currentXs.append(bool(x >= (zVal-selected_Zminimum)*(-newSlope/zoomScaleFactor) + xVal_at_selected_Zminimum)) 
+                            chosen_coords_for_currentXs.append(bool(x >= lowerbound_bZ)) 
                     u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
                 # TODO What to do at 0 slope??
             # Don't apply transformations to values that are outside of the selected depth range, but are between the near and far planes. These coordinates are still rendered
             else:
                 # Apply transformation from world coordinates to uv (v is 0 by default, so it's not considered here)
-                u_coords_for_currentXs = [x/(dZ_slope*zVal) for x in currentXvals]
+                u_coords_for_currentXs = [x/(bZ_slope*zVal) for x in currentXvals]
                 u_coordinates += u_coords_for_currentXs
                 # Keep track of coordinates to render
-                chosen_coords_for_currentXs = [bool(abs(x) <= abs(dZ_slope)*zVal) for x in currentXvals]
+                chosen_coords_for_currentXs = [bool(abs(x) <= abs(bZ_slope)*zVal) for x in currentXvals]
                 u_coordinates_to_visualize[j] = chosen_coords_for_currentXs
         else:
-            u_coordinates +=  [x/(dZ_slope*zVal) for x in currentXvals]
+            u_coordinates +=  [x/(bZ_slope*zVal) for x in currentXvals]
     # print(u_coordinates_to_visualize)
     u_coordinates_to_visualize = u_coordinates_to_visualize.flatten() # This mask is correct
     return u_coordinates, u_coordinates_to_visualize
-
-
-# def find_camera_params_after_foreshortening(old_half_img_width, old_focal_length, selected_Zminimum, nonminimum_Z, dZ_slope, zoomScaleFactor, foreshorteningFactor):
-#     newSlope = dZ_slope + foreshorteningFactor
-#     new_focal_length = sp.symbols('x')
-#     nonminimum_Z = float(nonminimum_Z)
-
-#     new_focal_length, new_half_img_width = sp.symbols('x y')
-#     equation1 = new_half_img_width - abs(newSlope)*new_focal_length
-#     equation2 = ((new_half_img_width/(new_focal_length*zoomScaleFactor))*nonminimum_Z - (new_half_img_width/(new_focal_length*zoomScaleFactor))*selected_Zminimum)/(nonminimum_Z - selected_Zminimum) - abs(newSlope)
-#     # equation3 = new_focal_length*math.atan(old_half_img_width/old_focal_length) - new_half_img_width
-#     # print(math.atan(old_half_img_width/old_focal_length))
-#     # inequality1 = new_focal_length > old_focal_length
-#     # inequality2 = new_half_img_width > old_half_img_width
-#     # equation3 = new_half_img_width - (new_focal_length*old_half_img_width)/old_focal_length
-#     solution = sp.solve((equation1, equation2), (new_focal_length, new_half_img_width)) #TODO Is still underconstrained
-#     print(solution)
-#     new_focal_length = solution[list(solution.keys())[0]]
-#     new_half_img_width = solution[list(solution.keys())[1]]
-   
-#     return new_focal_length, new_half_img_width
 
 
 def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, depthRangeValues, bZ_slope, half_img_width, focal_length, zoomScaleFactor, foreshorteningFactor, XZpairs):
@@ -212,9 +131,6 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     new_xVals = []
 
     # Foreshortening  
-    # Initial lower and upperbound b(z) values
-    lowerbound_bZ = -1
-    upperbound_bZ = 1
     # Iterate through z values
     for z in list(XvalForEachZ.keys()):
     # Get the distance bound_distance between the x coordinates of the lower and upper bounds of the new b(z)
@@ -224,22 +140,34 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
         upperbound_bZ = z*(newSlope/zoomScaleFactor) + upperbound_b
         lowerbound_bZ = -upperbound_bZ
         new_bound_distance = abs(upperbound_bZ)*2
-        num_inbound_Xs = 0
 
         old_upperbound_bZ = bZ_slope*z
         old_lowerbound_bZ = -bZ_slope*z
+        
         # Check if the current z value is in the selected z (depth) range
         Xs_at_Z = sorted(XvalForEachZ[z])
+        # if the difference between the new slope and the old slope is larger than the difference between upperbound-bZ and the largest X,
+        #  then set the largest X as the upperbound and set the smallest X as the lower bound
         if z >= selected_Zminimum and z <= selected_Zmaximum:
-            # print(z)
+            print("Z value")
+            print(z)
+
+            print("lowerbound bZ")
+            print(lowerbound_bZ)
+
+            print("upperbound bZ")
+            print(upperbound_bZ)
+            print("X vals")
             # Iterate through x values with the same z value
             for i in range(len(Xs_at_Z)):
                 x = Xs_at_Z[i]
                 # X values within the new b(z) bounds
-                if x >= lowerbound_bZ and x <= upperbound_bZ: 
+                if x > lowerbound_bZ and x < upperbound_bZ: 
                     normalized_x = 2*(x - old_lowerbound_bZ)/(old_upperbound_bZ-old_lowerbound_bZ)-1 # TODO: Change this to consider edge cases 
+                    normalized_x = min(1, max(-1, normalized_x))
                     remapped_x = normalized_x*new_bound_distance/2
                     new_xVals.append(remapped_x)
+                    print(x)
                 else:
                     new_xVals.append(x)
         # X values outside of the selected z ranges
@@ -355,7 +283,7 @@ app.layout = html.Div([
             min=-2,
             max=5,
             step=0.01,
-            value=0, 
+            value=-1.47, 
             marks={i: f'{i}' for i in range(-6, 6, 1)},
             tooltip={"placement": "bottom", "always_visible": True},
             updatemode='drag'
@@ -551,6 +479,7 @@ def update_uv_plot(zoomScaleFactor, foreshorteningFactor, nearPlaneZValue, farPl
     return figure
 
 
-#Runthe Dash app
+#Run the Dash app
 if __name__ == '__main__':
     app.run_server(debug=True)
+
