@@ -146,8 +146,6 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
         
         # Check if the current z value is in the selected z (depth) range
         Xs_at_Z = sorted(XvalForEachZ[z])
-        # if the difference between the new slope and the old slope is larger than the difference between upperbound-bZ and the largest X,
-        #  then set the largest X as the upperbound and set the smallest X as the lower bound
         if z >= selected_Zminimum and z <= selected_Zmaximum:
             print("Z value")
             print(z)
