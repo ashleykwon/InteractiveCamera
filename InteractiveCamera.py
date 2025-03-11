@@ -215,8 +215,6 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
     # Initial lower and upperbound b(z) values
     lowerbound_bZ = -1
     upperbound_bZ = 1
-    bound_distance = 2
-    stepsize = 1
     # Iterate through z values
     for z in list(XvalForEachZ.keys()):
     # Get the distance bound_distance between the x coordinates of the lower and upper bounds of the new b(z)
@@ -227,41 +225,22 @@ def uv_to_3d(u_coordinates, u_coordinates_to_visualize, Zminimum, Zmaximum, dept
         lowerbound_bZ = -upperbound_bZ
         new_bound_distance = abs(upperbound_bZ)*2
         num_inbound_Xs = 0
+
+        old_upperbound_bZ = bZ_slope*z
+        old_lowerbound_bZ = -bZ_slope*z
         # Check if the current z value is in the selected z (depth) range
         Xs_at_Z = sorted(XvalForEachZ[z])
         if z >= selected_Zminimum and z <= selected_Zmaximum:
             # print(z)
             # Iterate through x values with the same z value
-            first_inbound_X_found = False
-            first_inbound_X = -1000
-            last_inbound_X_found = False
-            last_inbound_X = -1000
             for i in range(len(Xs_at_Z)):
                 x = Xs_at_Z[i]
                 # X values within the new b(z) bounds
                 if x >= lowerbound_bZ and x <= upperbound_bZ: 
-                    num_inbound_Xs += 1
-                    if not(first_inbound_X_found) or (i == 0):
-                        stepsize_from_prevX = abs(x - lowerbound_bZ)
-                        first_inbound_X_found = True
-                        first_inbound_X = lowerbound_bZ + stepsize_from_prevX/(new_bound_distance/2)
-                    elif (i != len(Xs_at_Z)-1 and Xs_at_Z[i+1] > upperbound_bZ) or (i == len(Xs_at_Z)-1):
-                        stepsize_from_prevX = abs(upperbound_bZ-x)
-                        last_inbound_X_found = True
-                        last_inbound_X = upperbound_bZ - stepsize_from_prevX/(new_bound_distance/2)
-            # Find the bound distance between the upper bound x and the lower bound x
-            # Keep track of the x values
-            # Iterate through x values that are not boundary values and remap them
-            xbounds = last_inbound_X - first_inbound_X
-            stepsize = xbounds/(num_inbound_Xs - 1)
-            inboundXs_encountered = 0
-            # print(xbounds)
-            for i in range(len(Xs_at_Z)):
-                x = Xs_at_Z[i]
-                if x >= lowerbound_bZ and x <= upperbound_bZ:
-                    new_xVals.append(first_inbound_X + inboundXs_encountered*stepsize)
-                    inboundXs_encountered += 1
-                else:  
+                    normalized_x = 2*(x - old_lowerbound_bZ)/(old_upperbound_bZ-old_lowerbound_bZ)-1 # TODO: Change this to consider edge cases 
+                    remapped_x = normalized_x*new_bound_distance/2
+                    new_xVals.append(remapped_x)
+                else:
                     new_xVals.append(x)
         # X values outside of the selected z ranges
         else:
